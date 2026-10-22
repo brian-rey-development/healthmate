@@ -17,8 +17,7 @@ Each module folder holds its tables, its repositories and their tests. A table f
 | `src/users` | `users` |
 | `src/subjects` | `subjects` and the trigram search |
 | `src/entries` | `entries`, `entry_history` and the columns that the 2 tables share |
-| `src/conversations` | `conversations` and `messages` |
-| `src/tool-calls` | `tool_calls` |
+| `src/conversations` | `conversations` and `messages`. A proposal is a tool_use block in a message |
 | `src/citations` | `citations` |
 | `src/views` | `timeline_entries` |
 | `src/schema.ts` | Exports every enum, table and view for Drizzle Kit and the client |

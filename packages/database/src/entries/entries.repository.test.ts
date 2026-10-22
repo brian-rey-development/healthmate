@@ -10,12 +10,13 @@ import {
   noteEntry,
   PG_ERROR,
   seedEntry,
+  seedProposal,
   seedSubject,
-  seedToolCall,
   seedUser,
   type PgErrorCode,
   type TestContext,
 } from '../test-utils';
+import type { EntrySource } from './entries.repository';
 import { entries, type NewEntryRow } from './entries.table';
 import { entryHistory } from './entry-history.table';
 
@@ -36,12 +37,12 @@ const seedHeadache = async (ctx: TestContext, userId: string) => {
   });
 };
 
-const correctSeverity = (ctx: TestContext, userId: string, id: string, toolCallId: string) =>
+const correctSeverity = (ctx: TestContext, userId: string, id: string, source: EntrySource) =>
   ctx.repos.entries.correct({
     userId,
     id,
     expectedVersion: 1,
-    toolCallId,
+    source,
     updatedAt: LATER,
     changes: { value: { severity: 4 } },
   });
@@ -55,24 +56,38 @@ describe('entries repository', () => {
     );
   });
 
-  it('copies the first version into history with the time of the row', () =>
+  it('copies the first version into history with its source and the time of the row', () =>
     inRollback(db, async (ctx) => {
       const userId = await seedUser(ctx);
       const entry = await seedHeadache(ctx, userId);
 
       expect(entry).toMatchObject({ version: 1, startDate: '2026-01-01', value: { severity: 6 } });
       expect(await ctx.repos.entryHistory.listVersions(userId, entry.id)).toEqual([
-        expect.objectContaining({ version: 1, toolCallId: entry.toolCallId, recordedAt: CREATED_AT }),
+        expect.objectContaining({
+          version: 1,
+          sourceMessageId: entry.sourceMessageId,
+          sourceToolUseId: entry.sourceToolUseId,
+          recordedAt: CREATED_AT,
+        }),
       ]);
+    }));
+
+  it('writes nothing when the same proposal is confirmed twice', () =>
+    inRollback(db, async (ctx) => {
+      const userId = await seedUser(ctx);
+      const source = await seedProposal(ctx, userId);
+
+      expect(await ctx.repos.entries.insert(noteEntry(userId, source))).toBeDefined();
+      expect(await ctx.repos.entries.insert(noteEntry(userId, source))).toBeUndefined();
     }));
 
   it('adds a version for each correction and keeps the old version', () =>
     inRollback(db, async (ctx) => {
       const userId = await seedUser(ctx);
       const entry = await seedHeadache(ctx, userId);
-      const correction = await seedToolCall(ctx, userId);
+      const correction = await seedProposal(ctx, userId);
 
-      const corrected = await correctSeverity(ctx, userId, entry.id, correction.id);
+      const corrected = await correctSeverity(ctx, userId, entry.id, correction);
 
       expect(corrected).toMatchObject({ version: 2, value: { severity: 4 }, createdAt: CREATED_AT, updatedAt: LATER });
       const old = await ctx.repos.entryHistory.findVersion({ userId, entryId: entry.id, version: 1 });
@@ -84,21 +99,22 @@ describe('entries repository', () => {
     inRollback(db, async (ctx) => {
       const userId = await seedUser(ctx);
       const entry = await seedHeadache(ctx, userId);
-      const first = await seedToolCall(ctx, userId);
-      const second = await seedToolCall(ctx, userId);
+      const first = await seedProposal(ctx, userId);
+      const second = await seedProposal(ctx, userId);
 
-      expect(await correctSeverity(ctx, userId, entry.id, first.id)).toBeDefined();
-      expect(await correctSeverity(ctx, userId, entry.id, second.id)).toBeUndefined();
+      expect(await correctSeverity(ctx, userId, entry.id, first)).toBeDefined();
+      expect(await correctSeverity(ctx, userId, entry.id, second)).toBeUndefined();
       expect(await ctx.repos.entryHistory.listVersions(userId, entry.id)).toHaveLength(2);
     }));
 
-  it('refuses a second version from the same tool call', () =>
+  it('refuses a second version from the same proposal', () =>
     inRollback(db, async (ctx) => {
       const userId = await seedUser(ctx);
       const entry = await seedHeadache(ctx, userId);
+      const source = { sourceMessageId: entry.sourceMessageId, sourceToolUseId: entry.sourceToolUseId };
 
       await expectViolation(ctx, PG_ERROR.uniqueViolation, (repos) =>
-        correctSeverity({ ...ctx, repos }, userId, entry.id, entry.toolCallId),
+        correctSeverity({ ...ctx, repos }, userId, entry.id, source),
       );
     }));
 
@@ -107,10 +123,10 @@ describe('entries repository', () => {
       const userId = await seedUser(ctx);
       const otherId = await seedUser(ctx);
       const entry = await seedHeadache(ctx, userId);
-      const toolCall = await seedToolCall(ctx, otherId);
+      const source = await seedProposal(ctx, otherId);
 
       expect(await ctx.repos.entries.findById(otherId, entry.id)).toBeUndefined();
-      expect(await correctSeverity(ctx, otherId, entry.id, toolCall.id)).toBeUndefined();
+      expect(await correctSeverity(ctx, otherId, entry.id, source)).toBeUndefined();
       expect(await ctx.repos.entries.findById(userId, entry.id)).toMatchObject({ version: 1, value: { severity: 6 } });
     }));
 });
@@ -122,17 +138,16 @@ const INVALID_ROWS: readonly [string, Partial<NewEntryRow>, PgErrorCode][] = [
   ['a note with a subject', { subjectId: randomUUID() }, PG_ERROR.checkViolation],
   ['a symptom without a subject', { kind: 'symptom', value: { severity: 1 } }, PG_ERROR.checkViolation],
   ['a symptom with an unknown subject', { kind: 'symptom', subjectId: randomUUID() }, PG_ERROR.foreignKeyViolation],
+  ['an unknown source message', { sourceMessageId: randomUUID() }, PG_ERROR.foreignKeyViolation],
 ];
 
 describe('entries rules', () => {
   it.each(INVALID_ROWS)('rejects %s', (_name, overrides, code) =>
     inRollback(db, async (ctx) => {
       const userId = await seedUser(ctx);
-      const toolCall = await seedToolCall(ctx, userId);
+      const source = await seedProposal(ctx, userId);
 
-      await expectViolation(ctx, code, (repos) =>
-        repos.entries.insert(noteEntry(userId, toolCall.id, overrides)),
-      );
+      await expectViolation(ctx, code, (repos) => repos.entries.insert(noteEntry(userId, source, overrides)));
     }),
   );
 });

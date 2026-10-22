@@ -22,4 +22,22 @@ describe('messages repository', () => {
 
       expect(await ctx.repos.messages.listForConversation(otherId, conversation.id)).toEqual([]);
     }));
+
+  it('finds the last message of a conversation, where an open proposal can be', () =>
+    inRollback(db, async (ctx) => {
+      const userId = await seedUser(ctx);
+      const { conversation, answer } = await seedConversation(ctx, userId);
+
+      expect(await ctx.repos.messages.findLast(userId, conversation.id)).toEqual(answer);
+    }));
+
+  it('finds a message by id only for its owner', () =>
+    inRollback(db, async (ctx) => {
+      const userId = await seedUser(ctx);
+      const otherId = await seedUser(ctx);
+      const { answer } = await seedConversation(ctx, userId);
+
+      expect(await ctx.repos.messages.findById(userId, answer.id)).toEqual(answer);
+      expect(await ctx.repos.messages.findById(otherId, answer.id)).toBeUndefined();
+    }));
 });

@@ -29,6 +29,27 @@
       "when": 1792700849079,
       "tag": "20261022202729_entry_history_trigger",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1792702194883,
+      "tag": "20261022204954_drop_tool_calls",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1792702215855,
+      "tag": "20261022205015_entry_source_message",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1792702223939,
+      "tag": "20261022205023_entry_history_trigger_source",
+      "breakpoints": true
     }
   ]
 }
