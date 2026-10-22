@@ -16,8 +16,8 @@ import { createEntriesRepository } from './entries/entries.repository';
 import { createEntryHistoryRepository } from './entries/entry-history.repository';
 import type { Executor } from './executor';
 import { createSubjectsRepository } from './subjects/subjects.repository';
+import { createTimelineRepository } from './timeline/timeline.repository';
 import { createUsersRepository } from './users/users.repository';
-import { createTimelineRepository } from './views/timeline-entries.repository';
 
 // The keys match the dependency names of the core use cases, so the api passes repositories in unchanged.
 export type Repositories = {

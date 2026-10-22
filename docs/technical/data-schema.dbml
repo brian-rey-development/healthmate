@@ -1,5 +1,5 @@
 // HealthMate data schema, v0.1. This file is the living design of the data model. It changes with each release.
-// The Drizzle files packages/database/src/**/*.table.ts and *.view.ts are the source of truth for code.
+// The Drizzle files packages/database/src/**/*.table.ts are the source of truth for code.
 // Update this file in the same change as the schema.
 
 Project healthmate {
@@ -58,7 +58,7 @@ Table entries {
   id uuid [pk, note: 'Stays the same through all corrections.']
   user_id uuid [not null, ref: > users.id]
   subject_id uuid [note: 'Null for a note, and only for a note. A CHECK enforces this.']
-  version integer [not null, default: 1, note: 'Each correction adds 1. An update must match the version that the agent read. A CHECK keeps it at 1 or more. An update that does not add 1 fails on the entry_history primary key.']
+  version integer [not null, note: 'No default, because core sets it. Each correction adds 1 in SQL, and the update only matches the stored version minus 1. A CHECK keeps it at 1 or more.']
   kind kind [not null]
   value jsonb [not null, note: 'Checked by the zod schema of the kind. Symptom is {"severity": 0-10}. Note is {}.']
   original_words text [not null]
@@ -75,8 +75,7 @@ Table entries {
 
   indexes {
     (source_message_id, source_tool_use_id) [unique, note: 'NULLS NOT DISTINCT. A second confirm of the same proposal inserts nothing.']
-    (user_id, start_date) [note: 'Timeline.']
-    (user_id, subject_id, start_date) [note: 'All entries of one subject.']
+    (user_id, start_date, id) [name: 'entries_user_start_id_idx', note: 'timeline.listStartingBetween. start_date is DESC in the index. Newest start date first, then id.']
   }
 
   Note: 'The current data of each confirmed health fact. A trigger copies each insert and update into entry_history. No delete. ADR-003 keeps writers outside core out of the database. The trigger is an exception, because it makes no domain decision and only copies a row. The database does not check that the source message and subject_id belong to user_id. The use case in core checks this.'
@@ -105,7 +104,7 @@ Table entry_history {
     (source_message_id, source_tool_use_id) [unique, note: 'NULLS NOT DISTINCT. One proposal or one form submit makes at most one version.']
   }
 
-  Note: 'A copy of each version of each entry, the current version included. Insert only. Only the trigger writes here.'
+  Note: 'A copy of each version of each entry, the current version included. Insert only. Only the trigger writes here. The trigger function is SECURITY DEFINER, and anon and authenticated cannot run it. The timeline is a join of entries and subjects in the repository, and the database has no view.'
 }
 
 Table conversations {
@@ -115,7 +114,7 @@ Table conversations {
   created_at timestamptz [not null]
 
   indexes {
-    (user_id, created_at)
+    (user_id, channel, created_at) [note: 'conversations.findLatest.']
   }
 
   Note: 'One session with the agent in one channel.'
@@ -132,7 +131,7 @@ Table messages {
   created_at timestamptz [not null]
 
   indexes {
-    (conversation_id, created_at)
+    (conversation_id, created_at, id) [note: 'messages.findLatest and messages.listLatest. Ordered by created_at, then id.']
   }
 
   Note: 'Each message in a conversation. Insert only. Messages are the audit trail of the agent, with its reasoning, its tool calls and their results. A proposal is a tool_use block, for example propose_entry, in an assistant message. The person confirms or discards it with a tool_result in the next user message. The model API answers every tool_use in the next turn, so only the last message of a conversation can hold an open proposal. Expiry comes from created_at and is never stored. A web form submit is a user message in a web conversation.'
@@ -144,8 +143,7 @@ Table citations {
   version integer [not null]
 
   indexes {
-    (message_id, entry_id, version) [pk]
-    (entry_id, version) [note: 'For the foreign key to entry_history.']
+    (message_id, entry_id, version) [pk, note: 'citations.listForMessage and the conflict target of insertMany.']
   }
 
   Note: 'Link from an answer to each exact entry version that it used. The agent checks in code that each cited entry came from a tool result of the same turn.'
@@ -153,6 +151,3 @@ Table citations {
 
 Ref: entries.(subject_id, kind) > subjects.(id, kind)
 Ref: citations.(entry_id, version) > entry_history.(entry_id, version)
-
-// View timeline_entries (DBML has no view syntax). Each entry with subjects.name as subject_name.
-// security_invoker = true, so the view applies the RLS of its tables. No ORDER BY, because timeline order is ADR-004.

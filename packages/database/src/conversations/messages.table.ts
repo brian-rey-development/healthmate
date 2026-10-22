@@ -17,7 +17,7 @@ export const messages = pgTable(
     promptVersion: text(),
     createdAt: timestamp({ withTimezone: true }).notNull(),
   },
-  (t) => [index('messages_conversation_created_idx').on(t.conversationId, t.createdAt)],
+  (t) => [index('messages_conversation_created_id_idx').on(t.conversationId, t.createdAt, t.id)],
 ).enableRLS();
 
 export type MessageRow = typeof messages.$inferSelect;

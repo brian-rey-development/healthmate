@@ -12,7 +12,7 @@ export const conversations = pgTable(
     channel: channel().notNull(),
     createdAt: timestamp({ withTimezone: true }).notNull(),
   },
-  (t) => [index('conversations_user_created_idx').on(t.userId, t.createdAt)],
+  (t) => [index('conversations_user_channel_created_idx').on(t.userId, t.channel, t.createdAt)],
 ).enableRLS();
 
 export type ConversationRow = typeof conversations.$inferSelect;

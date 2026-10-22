@@ -17,7 +17,7 @@ export const entries = pgTable(
       .notNull()
       .references(() => messages.id),
     sourceToolUseId: text(),
-    version: integer().notNull().default(1),
+    version: integer().notNull(),
     createdAt: timestamp({ withTimezone: true }).notNull(),
     updatedAt: timestamp({ withTimezone: true }).notNull(),
   },
@@ -28,8 +28,7 @@ export const entries = pgTable(
       foreignColumns: [subjects.id, subjects.kind],
     }),
     unique('entries_source_unique').on(t.sourceMessageId, t.sourceToolUseId).nullsNotDistinct(),
-    index('entries_user_start_idx').on(t.userId, t.startDate),
-    index('entries_user_subject_start_idx').on(t.userId, t.subjectId, t.startDate),
+    index('entries_user_start_id_idx').on(t.userId, t.startDate.desc().nullsFirst(), t.id),
     check('entries_subject_matches_kind', sql`(${t.kind} = 'note') = (${t.subjectId} is null)`),
     check('entries_version_positive', sql`${t.version} >= 1`),
     check('entries_start_time_needs_day', sql`${t.startTime} is null or ${t.startPrecision} = 'day'`),

@@ -6,22 +6,24 @@ import { conversations, type ConversationRow } from './conversations.table';
 
 const toConversation = ({ id, userId, channel }: ConversationRow): Conversation => ({ id, userId, channel });
 
+const owned = (userId: string, id: string) => and(eq(conversations.userId, userId), eq(conversations.id, id));
+
 const findById =
   (db: Executor): ConversationsRepository['findById'] =>
   async (userId, id) => {
-    const owned = and(eq(conversations.userId, userId), eq(conversations.id, id));
-    const row = first(await db.select().from(conversations).where(owned));
+    const row = first(await db.select().from(conversations).where(owned(userId, id)));
     return row && toConversation(row);
   };
 
 const findLatest =
   (db: Executor): ConversationsRepository['findLatest'] =>
   async (userId, channel) => {
+    const inChannel = and(eq(conversations.userId, userId), eq(conversations.channel, channel));
     const rows = await db
       .select()
       .from(conversations)
-      .where(and(eq(conversations.userId, userId), eq(conversations.channel, channel)))
-      .orderBy(desc(conversations.createdAt))
+      .where(inChannel)
+      .orderBy(desc(conversations.createdAt), desc(conversations.id))
       .limit(1);
     const row = first(rows);
     return row && toConversation(row);

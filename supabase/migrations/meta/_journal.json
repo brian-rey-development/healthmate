@@ -50,6 +50,20 @@
       "when": 1792702223939,
       "tag": "20261022205023_entry_history_trigger_source",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1792709529484,
+      "tag": "20261022225209_drop_timeline_view_and_reshape_indexes",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1792709532414,
+      "tag": "20261022225212_harden_history_trigger_and_privileges",
+      "breakpoints": true
     }
   ]
 }

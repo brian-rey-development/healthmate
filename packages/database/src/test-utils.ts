@@ -1,13 +1,14 @@
 import { randomUUID } from 'node:crypto';
-import type {
-  Conversation,
-  EntrySource,
-  Message,
-  MessageRole,
-  NoteEntry,
-  Severity,
-  Subject,
-  SymptomEntry,
+import {
+  createSeverity,
+  type Conversation,
+  type EntrySource,
+  type Message,
+  type MessageRole,
+  type NoteEntry,
+  type Severity,
+  type Subject,
+  type SymptomEntry,
 } from '@healthmate/core';
 import { sql, TransactionRollbackError } from 'drizzle-orm';
 import { expect } from 'vitest';
@@ -28,6 +29,7 @@ export type PgErrorCode = (typeof PG_ERROR)[keyof typeof PG_ERROR];
 export const CREATED_AT = new Date('2026-01-01T09:00:00Z');
 export const LATER = new Date('2026-01-02T09:00:00Z');
 const TIME_ZONE = 'Europe/Madrid';
+const TEST_POOL_SIZE = 2;
 
 export type TestContext = { readonly repos: Repositories; readonly tx: Executor };
 
@@ -35,7 +37,7 @@ export const connectTestDb = () => {
   loadLocalEnv();
   const url = requireEnv('DATABASE_URL');
   assertLocalTarget(url);
-  return createDb(url);
+  return createDb(url, { max: TEST_POOL_SIZE });
 };
 
 const contextOf = (tx: Executor): TestContext => ({ repos: createRepositories(tx), tx });
@@ -60,6 +62,12 @@ export const expectViolation = async (
   await expect(tx.transaction((savepoint) => work(contextOf(savepoint)))).rejects.toMatchObject({ cause: { code } });
 };
 
+export const severityOf = (value: number): Severity => {
+  const result = createSeverity(value);
+  if (!result.ok) throw new Error(`The test severity ${value} is invalid`);
+  return result.value;
+};
+
 export const seedUser = async ({ repos, tx }: TestContext): Promise<string> => {
   const id = randomUUID();
   await tx.execute(sql`insert into auth.users (id) values (${id})`);
@@ -73,13 +81,12 @@ export const seedSubject = async ({ repos }: TestContext, owner: Pick<Subject, '
   return subject;
 };
 
-const seedConversationRow = async ({ repos }: TestContext, userId: string): Promise<Conversation> => {
-  const conversation: Conversation = { id: randomUUID(), userId, channel: 'telegram' };
-  await repos.conversations.insert(conversation, CREATED_AT);
-  return conversation;
-};
-
-const message = (conversationId: string, role: MessageRole, content: Message['content'], createdAt: Date): Message => ({
+export const buildMessage = (
+  conversationId: string,
+  role: MessageRole,
+  content: Message['content'],
+  createdAt: Date,
+): Message => ({
   id: randomUUID(),
   conversationId,
   role,
@@ -90,22 +97,35 @@ const message = (conversationId: string, role: MessageRole, content: Message['co
   createdAt,
 });
 
+export const buildTextMessage = (conversationId: string, role: MessageRole, text: string, createdAt: Date): Message =>
+  buildMessage(conversationId, role, [{ type: 'text', text }], createdAt);
+
+export const seedEmptyConversation = async (
+  { repos }: TestContext,
+  userId: string,
+  { createdAt = CREATED_AT, ...overrides }: Partial<Conversation> & { createdAt?: Date } = {},
+): Promise<Conversation> => {
+  const conversation: Conversation = { id: randomUUID(), userId, channel: 'telegram', ...overrides };
+  await repos.conversations.insert(conversation, createdAt);
+  return conversation;
+};
+
 // A proposal is a tool_use block in an assistant message. The entry points to that message and that tool_use id.
-export const seedOpenProposal = async (ctx: TestContext, userId: string) => {
-  const conversation = await seedConversationRow(ctx, userId);
+export const seedProposalMessage = async (ctx: TestContext, userId: string) => {
+  const conversation = await seedEmptyConversation(ctx, userId);
   const toolUseId = `toolu_${randomUUID()}`;
   const toolUse = { type: 'tool_use', id: toolUseId, name: 'propose_entry', input: {} } as const;
-  const proposal = message(conversation.id, 'assistant', [toolUse], CREATED_AT);
+  const proposal = buildMessage(conversation.id, 'assistant', [toolUse], CREATED_AT);
   await ctx.repos.messages.insert(proposal);
   return { conversationId: conversation.id, messageId: proposal.id, toolUseId };
 };
 
-export const seedProposal = async (ctx: TestContext, userId: string): Promise<EntrySource> => {
-  const { messageId, toolUseId } = await seedOpenProposal(ctx, userId);
+export const seedEntrySource = async (ctx: TestContext, userId: string): Promise<EntrySource> => {
+  const { messageId, toolUseId } = await seedProposalMessage(ctx, userId);
   return { messageId, toolUseId };
 };
 
-export const noteEntry = (userId: string, source: EntrySource, overrides: Partial<NoteEntry> = {}): NoteEntry => ({
+export const buildNote = (userId: string, source: EntrySource, overrides: Partial<NoteEntry> = {}): NoteEntry => ({
   id: randomUUID(),
   userId,
   version: 1,
@@ -120,11 +140,11 @@ export const noteEntry = (userId: string, source: EntrySource, overrides: Partia
   ...overrides,
 });
 
-export const symptomEntry = (
+export const buildSymptom = (
   note: NoteEntry,
   subject: Subject,
   overrides: Partial<SymptomEntry> = {},
-): SymptomEntry => ({ ...note, kind: 'symptom', subjectId: subject.id, severity: 6 as Severity, ...overrides });
+): SymptomEntry => ({ ...note, kind: 'symptom', subjectId: subject.id, severity: severityOf(6), ...overrides });
 
 export const seedEntry = async <E extends NoteEntry | SymptomEntry>(ctx: TestContext, entry: E): Promise<E> => {
   if (!(await ctx.repos.entries.insert(entry, CREATED_AT))) throw new Error(`The seed entry ${entry.id} exists`);
@@ -132,20 +152,17 @@ export const seedEntry = async <E extends NoteEntry | SymptomEntry>(ctx: TestCon
 };
 
 export const seedNote = async (ctx: TestContext, userId: string, overrides: Partial<NoteEntry> = {}) =>
-  seedEntry(ctx, noteEntry(userId, await seedProposal(ctx, userId), overrides));
-
-const textMessage = (conversationId: string, role: MessageRole, text: string, createdAt: Date): Message =>
-  message(conversationId, role, [{ type: 'text', text }], createdAt);
+  seedEntry(ctx, buildNote(userId, await seedEntrySource(ctx, userId), overrides));
 
 // The answer is inserted first but is newer, so a test sees that the order comes from created_at.
-export const seedConversation = async (ctx: TestContext, userId: string) => {
-  const conversation = await seedConversationRow(ctx, userId);
+export const seedConversationWithMessages = async (ctx: TestContext, userId: string) => {
+  const conversation = await seedEmptyConversation(ctx, userId);
   const answer = {
-    ...textMessage(conversation.id, 'assistant', 'One note this week.', LATER),
+    ...buildTextMessage(conversation.id, 'assistant', 'One note this week.', LATER),
     model: 'claude-sonnet-5-5',
     promptVersion: 'answer-v1',
   };
-  const question = textMessage(conversation.id, 'user', 'How was my week?', CREATED_AT);
+  const question = buildTextMessage(conversation.id, 'user', 'How was my week?', CREATED_AT);
   await ctx.repos.messages.insert(answer);
   await ctx.repos.messages.insert(question);
   return { conversation, question, answer };
