@@ -1,4 +1,4 @@
-// HealthMate data schema, v0.1. Decisions and reasons are in adr/004-data-model.md.
+// HealthMate data schema, v0.1. This file is the living design of the data model. It changes with each release.
 // The Drizzle schema in packages/db/src/schema.ts is the source of truth for code.
 // Update this file in the same change as the schema.
 
@@ -88,7 +88,7 @@ Table entries {
     (user_id, start_date)
   }
 
-  Note: 'The current data of each confirmed health fact. A trigger copies each insert and update into entry_history. No delete.'
+  Note: 'The current data of each confirmed health fact. A trigger copies each insert and update into entry_history. No delete. The trigger is an exception to the no-trigger rule of ADR-003, because it makes no domain decision and only copies a row.'
 }
 
 Table entry_history {
