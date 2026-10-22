@@ -34,4 +34,8 @@ export const KINDS = ['note', 'symptom'] as const satisfies readonly Entry['kind
 
 export type Kind = (typeof KINDS)[number];
 
+type AssertTrue<T extends true> = T;
+
+export type KindsAreComplete = AssertTrue<Entry['kind'] extends Kind ? true : false>;
+
 export type EntryVersion = Entry & { readonly recordedAt: Date };

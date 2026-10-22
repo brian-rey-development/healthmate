@@ -3,8 +3,7 @@ import type { Message, ToolUseBlock } from './message';
 
 export const PROPOSAL_TOOL_NAMES: ReadonlySet<string> = new Set(['propose_entry']);
 
-const MS_PER_HOUR = 3_600_000;
-export const PROPOSAL_LIFETIME_HOURS = 24;
+export const PROPOSAL_LIFETIME_MS = 24 * 3_600_000;
 
 export type OpenProposal = { readonly messageId: string; readonly toolUse: ToolUseBlock };
 
@@ -23,7 +22,6 @@ export const openProposal = (
 ): Result<OpenProposal, ProposalError> => {
   const toolUse = lastMessage?.role === 'assistant' ? lastMessage.content.find(isProposal(toolUseId)) : undefined;
   if (!lastMessage || !toolUse) return err('proposal_not_found');
-  const ageHours = (now.getTime() - lastMessage.createdAt.getTime()) / MS_PER_HOUR;
-  if (ageHours > PROPOSAL_LIFETIME_HOURS) return err('proposal_expired');
+  if (now.getTime() - lastMessage.createdAt.getTime() > PROPOSAL_LIFETIME_MS) return err('proposal_expired');
   return ok({ messageId: lastMessage.id, toolUse });
 };

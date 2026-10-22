@@ -4,7 +4,12 @@ export type { IdGenerator } from './shared/ports/id-generator';
 
 export { createDisplayName, MAX_DISPLAY_NAME_LENGTH, type User } from './users/domain/user';
 export type { UsersRepository } from './users/ports/users-repository';
-export { createUser, type CreateUserDeps, type CreateUserError, type CreateUserInput } from './users/application/create-user';
+export {
+  createUser,
+  type CreateUserDeps,
+  type CreateUserError,
+  type CreateUserInput,
+} from './users/application/create-user';
 
 export { createSubjectName, MAX_SUBJECT_NAME_LENGTH, type Subject, type SubjectKind } from './subjects/domain/subject';
 export type { SubjectSearch, SubjectsRepository } from './subjects/ports/subjects-repository';
@@ -16,24 +21,45 @@ export {
 } from './subjects/application/add-subject';
 
 export { buildEntry, type BuildEntryError, type EntryIdentity } from './entries/domain/build-entry';
-export { applyCorrection, type Correction, type CorrectionError, type EntryChanges } from './entries/domain/correction';
-export type {
-  Entry,
-  EntrySource,
-  EntryTimes,
-  EntryVersion,
-  NoteEntry,
-  SymptomEntry,
+export {
+  applyCorrection,
+  FIRST_VERSION,
+  nextVersion,
+  type Correction,
+  type CorrectionError,
+  type EntryChanges,
+} from './entries/domain/correction';
+export {
+  KINDS,
+  type Entry,
+  type EntrySource,
+  type EntryTimes,
+  type EntryVersion,
+  type Kind,
+  type NoteEntry,
+  type SymptomEntry,
 } from './entries/domain/entry';
-export { KINDS, type Kind } from './entries/domain/entry';
 export {
   createEntryDate,
+  createIsoDate,
   DATE_PRECISIONS,
-  type DatePrecision, type EntryDate, type EntryDateError,
+  type DatePrecision,
+  type EntryDate,
+  type EntryDateError,
+  type EntryDateInput,
 } from './entries/domain/entry-date';
 export { checkEntryTimes, type EntryTimesError } from './entries/domain/entry-times';
-export { missingFields, type EntryDraft, type RequiredField } from './entries/domain/missing-fields';
+export {
+  isComplete,
+  missingFields,
+  type CompleteDraft,
+  type EntryDraft,
+  type NoteDraft,
+  type RequiredField,
+  type SymptomDraft,
+} from './entries/domain/missing-fields';
 export { createSeverity, MAX_SEVERITY, MIN_SEVERITY, type Severity } from './entries/domain/severity';
+export { createTimeOfDay } from './entries/domain/time-of-day';
 export type { EntriesRepository, SavedCorrection } from './entries/ports/entries-repository';
 export type { EntryHistoryRepository, EntryVersionKey } from './entries/ports/entry-history-repository';
 export type { TimelineItem, TimelineRange, TimelineRepository } from './entries/ports/timeline-repository';
@@ -43,7 +69,12 @@ export {
   type CorrectEntryError,
   type CorrectEntryInput,
 } from './entries/application/correct-entry';
-export { listTimeline, type ListTimelineDeps } from './entries/application/list-timeline';
+export {
+  listTimeline,
+  type ListTimelineDeps,
+  type ListTimelineError,
+  type ListTimelineInput,
+} from './entries/application/list-timeline';
 export {
   recordEntry,
   type RecordEntryDeps,
@@ -62,7 +93,7 @@ export {
 } from './conversations/domain/message';
 export {
   openProposal,
-  PROPOSAL_LIFETIME_HOURS,
+  PROPOSAL_LIFETIME_MS,
   PROPOSAL_TOOL_NAMES,
   type OpenProposal,
   type ProposalError,

@@ -12,7 +12,7 @@ export type AddSubjectDeps = {
 
 export type AddSubjectInput = { readonly userId: string; readonly kind: SubjectKind; readonly name: string };
 
-export type AddSubjectError = 'invalid_name' | 'duplicate_name';
+export type AddSubjectError = 'subject_name_invalid' | 'subject_name_taken';
 
 export const addSubject = async (
   { subjects, ids, clock }: AddSubjectDeps,
@@ -20,6 +20,6 @@ export const addSubject = async (
 ): Promise<Result<Subject, AddSubjectError>> => {
   const name = createSubjectName(input.name);
   if (!name.ok) return name;
-  const subject = { id: ids.next(), userId: input.userId, kind: input.kind, name: name.value };
-  return (await subjects.insert(subject, clock.now())) ? ok(subject) : err('duplicate_name');
+  const subject: Subject = { id: ids.next(), userId: input.userId, kind: input.kind, name: name.value };
+  return (await subjects.insert(subject, clock.now())) ? ok(subject) : err('subject_name_taken');
 };

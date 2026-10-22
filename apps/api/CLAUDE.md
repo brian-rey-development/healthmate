@@ -26,7 +26,7 @@ src/
 
 - A route parses the body, the params and the query with the schema from `contracts`, through `@hono/zod-validator`. A parse failure is a 400 with `{ error: { code: 'invalid_request' } }`.
 - A route calls 1 use case from `core` and maps its `Result`. The route has no `if` about the domain.
-- `errors.ts` maps each error name to 1 status, for example `*_not_found` to 404, `stale_version` and `*_taken` to 409, `proposal_expired` to 410 and `invalid_*` to 422. The map is `satisfies Record<ApiError, number>`, so a new error name fails to compile until it has a status.
+- `errors.ts` maps each error name to 1 status, for example `*_not_found` to 404, `*_stale`, `*_taken` and `*_already_*` to 409, `proposal_expired` to 410, and `*_invalid` and `*_missing` to 422. The map is `satisfies Record<ApiError, number>`, so a new error name fails to compile until it has a status.
 - A route maps the domain value to the view type from `contracts` in 1 function, for example `toProposalView`. It never returns a domain object.
 - A route that runs more than 1 write wraps the use case in `inTransaction`.
 

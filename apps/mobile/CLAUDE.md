@@ -18,7 +18,7 @@ src/
 - Server data goes through TanStack Query. A query key is an array that starts with the resource, for example `['timeline', from, to]`. A mutation invalidates the keys that it changes.
 - The app keeps no copy of server data in local state. Local state holds only form input and UI state.
 - A form shows the required fields that `api` returns for the kind. The app never decides on its own which field is required.
-- A confirm or a correction sends `expectedVersion`. On `stale_version` the app reloads the entry and shows the newer version.
+- A confirm or a correction sends `expectedVersion`. On `entry_version_stale` the app reloads the entry and shows the newer version.
 
 ## Components
 

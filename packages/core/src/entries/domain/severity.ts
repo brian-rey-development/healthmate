@@ -8,7 +8,8 @@ export type Severity = number & { readonly [severityBrand]: true };
 export const MIN_SEVERITY = 0;
 export const MAX_SEVERITY = 10;
 
-export const createSeverity = (value: number): Result<Severity, 'invalid_severity'> =>
+export const createSeverity = (value: number): Result<Severity, 'severity_invalid'> =>
   Number.isInteger(value) && value >= MIN_SEVERITY && value <= MAX_SEVERITY
+    // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- brand constructor, the only place a number becomes a Severity
     ? ok(value as Severity)
-    : err('invalid_severity');
+    : err('severity_invalid');

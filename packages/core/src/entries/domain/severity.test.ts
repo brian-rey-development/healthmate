@@ -7,6 +7,6 @@ describe('createSeverity', () => {
   });
 
   it.each([-1, 11, 6.5, Number.NaN])('rejects %d', (value) => {
-    expect(createSeverity(value)).toEqual({ ok: false, error: 'invalid_severity' });
+    expect(createSeverity(value)).toEqual({ ok: false, error: 'severity_invalid' });
   });
 });

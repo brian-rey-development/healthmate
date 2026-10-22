@@ -13,5 +13,5 @@ export type Subject = {
 
 export const MAX_SUBJECT_NAME_LENGTH = 60;
 
-export const createSubjectName = (value: string): Result<string, 'invalid_name'> =>
-  createBoundedText(value, MAX_SUBJECT_NAME_LENGTH, 'invalid_name');
+export const createSubjectName = (value: string): Result<string, 'subject_name_invalid'> =>
+  createBoundedText(value, MAX_SUBJECT_NAME_LENGTH, 'subject_name_invalid');
