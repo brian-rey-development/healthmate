@@ -24,9 +24,9 @@
     "stack:down": "supabase stop",
     "stack:status": "supabase status",
     "stack:env": "scripts/write-env.sh",
-    "db:generate": "pnpm --filter @healthmate/db db:generate",
+    "db:generate": "pnpm --filter @healthmate/database db:generate",
     "db:migrate": "supabase migration up --local",
     "db:reset": "scripts/db-reset.sh",
-    "db:seed": "pnpm --filter @healthmate/db db:seed"
+    "db:seed": "pnpm --filter @healthmate/database db:seed"
   }
 }

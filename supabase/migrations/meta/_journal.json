@@ -8,6 +8,27 @@
       "when": 1792692723000,
       "tag": "20261022181202_init",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1792700657521,
+      "tag": "20261022202417_enable_pg_trgm",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792700839950,
+      "tag": "20261022202719_entries_and_conversations",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1792700849079,
+      "tag": "20261022202729_entry_history_trigger",
+      "breakpoints": true
     }
   ]
 }

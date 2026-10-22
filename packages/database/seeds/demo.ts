@@ -1,5 +1,6 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import { assertLocalTarget, createDb, loadLocalEnv, requireEnv, users, type Database } from '../src/index';
+import { assertLocalTarget, createDb, loadLocalEnv, requireEnv, type Database } from '../src/index';
+import { users } from '../src/schema';
 import { DEMO_CREATED_AT, DEMO_PASSWORD, DEMO_USERS, type DemoUser } from './demo-users';
 
 const ensureAuthUser = async (admin: SupabaseClient, user: DemoUser): Promise<boolean> => {

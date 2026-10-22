@@ -1,0 +1,22 @@
+import { randomUUID } from 'node:crypto';
+import { afterAll, describe, expect, it } from 'vitest';
+import { connectTestDb, CREATED_AT, expectViolation, inRollback, PG_ERROR, seedUser } from '../test-utils';
+
+const { db, close } = connectTestDb();
+afterAll(close);
+
+describe('users repository', () => {
+  it('finds a user linked to an auth user', () =>
+    inRollback(db, async (ctx) => {
+      const id = await seedUser(ctx);
+
+      expect(await ctx.repos.users.findById(id)).toEqual({ id, displayName: 'Synthetic Sam', createdAt: CREATED_AT });
+    }));
+
+  it('rejects a user without a matching auth user', () =>
+    inRollback(db, async (ctx) => {
+      await expectViolation(ctx, PG_ERROR.foreignKeyViolation, (repos) =>
+        repos.users.insert({ id: randomUUID(), displayName: 'Orphan', createdAt: CREATED_AT }),
+      );
+    }));
+});

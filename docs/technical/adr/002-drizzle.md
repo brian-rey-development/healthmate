@@ -8,7 +8,7 @@ The original stack used plain SQL migrations written by hand and Kysely for quer
 
 ## Decision
 
-`packages/db/src/schema.ts` is the single source for table definitions. Drizzle Kit 0.31 generates SQL migrations from it into `supabase/migrations` (originally `packages/db/migrations`, see ADR-003), and those files are committed and reviewed like code. Generated migrations are plain SQL, so a reviewer reads exactly what will run. When Drizzle cannot express something, a person can edit a migration before its first apply. A migration that has been applied anywhere is never edited, and a fix is a new migration.
+`packages/database/src/schema.ts` is the single source for table definitions. Drizzle Kit 0.31 generates SQL migrations from it into `supabase/migrations` (originally `packages/database/migrations`, see ADR-003), and those files are committed and reviewed like code. Generated migrations are plain SQL, so a reviewer reads exactly what will run. When Drizzle cannot express something, a person can edit a migration before its first apply. A migration that has been applied anywhere is never edited, and a fix is a new migration.
 
 Drizzle ORM 0.45 talks to Postgres through postgres.js 3, which is a pure-JavaScript driver with no native build step and pipelined queries. Both configs set `casing: "snake_case"`, so TypeScript keys stay camelCase while columns are snake_case without a name on every column.
 
@@ -20,9 +20,9 @@ CI applies migrations with the Supabase CLI, regenerates them, and fails when th
 
 ## Consequences
 
-Repositories in `db` map between `UserRow` and the domain type, so the stored shape stays separate from the domain shape, as `docs/technical/architecture.md` requires. Drizzle types never cross into `core`.
+Repositories in `database` map between `UserRow` and the domain type, so the stored shape stays separate from the domain shape, as `docs/technical/architecture.md` requires. Drizzle types never cross into `core`.
 
-Drizzle's query builder is less close to SQL than Kysely's. For a complex query, the `sql` template tag can be clearer. That is acceptable and stays inside `db`.
+Drizzle's query builder is less close to SQL than Kysely's. For a complex query, the `sql` template tag can be clearer. That is acceptable and stays inside `database`.
 
 ## Revisit when
 

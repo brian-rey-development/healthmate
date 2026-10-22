@@ -84,7 +84,7 @@ importers:
 
   packages/core: {}
 
-  packages/db:
+  packages/database:
     dependencies:
       drizzle-orm:
         specifier: ^0.45.4

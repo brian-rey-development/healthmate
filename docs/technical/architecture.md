@@ -46,7 +46,7 @@ healthmate/
         application/
         testing/
     contracts/
-    db/
+    database/
       seeds/
     agent/
     providers/
@@ -78,7 +78,7 @@ Inside any package, a folder gets subfolders only when it passes roughly eight f
 |---|---|
 | `core` | Domain rules and use cases. Zero runtime dependencies. |
 | `contracts` | Everything that crosses a process boundary: HTTP payloads, channel events, client views and a small typed API client. |
-| `db` | Postgres access, the Drizzle schema that generates `supabase/migrations`, synthetic seeds, and implementations of `core` repository ports. |
+| `database` | Postgres access, the Drizzle schema that generates `supabase/migrations`, synthetic seeds, and implementations of `core` repository ports. |
 | `agent` | Conversation loop, tools, prompts, policy, budgets and citation validation. Defines the ports for model and transcription. |
 | `providers` | Concrete implementations of `agent` ports for real model and transcription services. |
 | `evals` | Datasets, runner, scorers and committed run summaries. Nothing depends on it. |
@@ -116,7 +116,7 @@ There is no `types/` or `interfaces/` folder. Grouping by kind of TypeScript con
 |---|---|
 | `core` | nothing |
 | `contracts` | `zod` |
-| `db` | `core`, Postgres libraries |
+| `database` | `core`, Postgres libraries |
 | `agent` | `core`, `contracts`, `zod` |
 | `providers` | `agent` (types only), provider SDKs |
 | `evals` | `agent`, `core`, `providers` |
@@ -134,7 +134,7 @@ Three kinds of shapes exist. They change for different reasons, so they live in 
 |---|---|---|---|
 | Domain type | What something is and its rules | `core/domain` | `Symptom`, `Proposal` |
 | Wire schema | What crosses a boundary | `contracts`, or the agent tool that receives it | `proposalViewSchema`, `ProposalView` |
-| Stored shape | How it's persisted | `db` | `SymptomRow`, `symptomPayloadV1` |
+| Stored shape | How it's persisted | `database` | `SymptomRow`, `symptomPayloadV1` |
 
 - `core` never imports `zod` and never uses `z.infer`.
 - In `contracts` the schema is the source of truth, so `z.infer` is correct there.
@@ -194,7 +194,7 @@ export async function confirmProposal(
 |---|---|
 | `core/domain` | Pure unit tests, no fakes |
 | `core/application` | Unit tests against `core/testing` |
-| `db` | Integration tests against the local Supabase Postgres, each in a rolled-back transaction |
+| `database` | Integration tests against the local Supabase Postgres, each in a rolled-back transaction |
 | `agent` | Loop and tools with a scripted model client replaying recorded responses |
 | `apps/api` | Route tests with fakes wired in |
 | Model behavior | Live evals against the real model, run separately |
@@ -231,7 +231,7 @@ Every task names the package it touches, the use case or tool involved, and the 
 4. Write ADR-001 (stack) and a first draft of the threat model.
 5. Define the first table in the Drizzle schema and commit the generated migration.
 6. In `core`, write the domain with pure tests, then the ports, then the use cases tested against `core/testing`.
-7. In `db`, write the repositories, the unit of work and the integration tests.
+7. In `database`, write the repositories, the unit of work and the integration tests.
 8. In `agent`, write the loop, the budgets and the tools against a scripted model client.
 9. Write the first 25 eval cases before connecting a real model.
 10. In `providers`, connect the real model and the transcription service.
