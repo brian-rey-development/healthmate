@@ -8,9 +8,9 @@ const coreLayer = (layer) => `packages/core/src/*/${layer}/**`;
 
 // Which core modules each module must never import. Modules not listed may import any other module.
 const CORE_MODULE_BANS = {
-  shared: ['entries', 'subjects', 'tool-calls', 'conversations', 'timeline'],
-  entries: ['tool-calls', 'conversations', 'timeline'],
-  subjects: ['entries', 'tool-calls', 'conversations', 'timeline'],
+  shared: ['entries', 'subjects', 'conversations', 'timeline'],
+  entries: ['conversations', 'timeline'],
+  subjects: ['entries', 'conversations', 'timeline'],
 };
 const NO_RUNTIME_DEPENDENCY = { regex: '^[^./]', message: 'core has zero runtime dependencies' };
 const coreImportRules = (bans = []) => ({
