@@ -5,4 +5,4 @@ cd "$(dirname "$0")/.."
 
 scripts/preflight.sh
 pnpm exec supabase db reset --local
-pnpm --filter @healthmate/db db:seed
+pnpm --filter @healthmate/database db:seed

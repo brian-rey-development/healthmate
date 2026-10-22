@@ -20,7 +20,7 @@ App tables live in `public`. PostgREST does not expose `public`, so the publisha
 
 `public.users` is the HealthMate profile for an identity. Its `id` is the `auth.users` id, with `ON DELETE RESTRICT`, so deleting an identity cannot silently remove a profile and its history. No trigger creates profiles on signup, because a trigger is a writer outside `core`. A use case creates the profile instead.
 
-Seeds create synthetic demo users through the Auth admin API with `@supabase/supabase-js`, a devDependency of `db`. Seeds never insert rows into `auth.users` directly, because Auth's internal tables change between versions. Seeds use fixed ids and emails, so running them twice changes nothing.
+Seeds create synthetic demo users through the Auth admin API with `@supabase/supabase-js`, a devDependency of `database`. Seeds never insert rows into `auth.users` directly, because Auth's internal tables change between versions. Seeds use fixed ids and emails, so running them twice changes nothing.
 
 `.env.local` is generated from `supabase status` by `scripts/write-env.sh`. `.env` is reserved for user overrides, loads first and wins.
 

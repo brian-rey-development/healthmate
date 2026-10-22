@@ -8,7 +8,7 @@ const MAX_FUNCTION_LINES = 20;
 
 const packageElements = {
   contracts: 'packages/contracts/src/**',
-  db: 'packages/db/src/**',
+  database: 'packages/database/src/**',
   agent: 'packages/agent/src/**',
   providers: 'packages/providers/src/**',
   evals: 'packages/evals/src/**',
@@ -31,11 +31,11 @@ const allowances = [
   { from: 'core-testing', values: ['core-domain', 'core-ports'] },
   { from: 'core-entry', values: ['core-domain', 'core-ports', 'core-application'] },
   { from: 'contracts', values: [] },
-  { from: 'db', values: ['core-entry'] },
+  { from: 'database', values: ['core-entry'] },
   { from: 'agent', values: ['core-entry', 'contracts'] },
   { from: 'providers', types: ['agent'] },
   { from: 'evals', values: ['agent', 'core-entry', 'providers'] },
-  { from: 'api', values: ['core-entry', 'core-testing', 'contracts', 'db', 'agent', 'providers'] },
+  { from: 'api', values: ['core-entry', 'core-testing', 'contracts', 'database', 'agent', 'providers'] },
   { from: 'telegram', values: ['contracts'] },
   { from: 'mobile', values: ['contracts'] },
   { from: 'site', values: [] },
