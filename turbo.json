@@ -1,25 +1,56 @@
 {
   "$schema": "https://turbo.build/schema.json",
-  "globalDependencies": ["tsconfig.base.json"],
+  "globalDependencies": [
+    "tsconfig.base.json"
+  ],
   "tasks": {
     "build": {
-      "dependsOn": ["^build"],
-      "inputs": ["src/**", "public/**", "astro.config.mjs", "package.json"],
-      "outputs": ["dist/**"]
+      "dependsOn": [
+        "^build"
+      ],
+      "inputs": [
+        "src/**",
+        "public/**",
+        "astro.config.mjs",
+        "package.json"
+      ],
+      "outputs": [
+        "dist/**"
+      ]
     },
     "typecheck": {
-      "dependsOn": ["^typecheck"],
-      "inputs": ["src/**", "seeds/**", "*.ts", "*.mjs", "tsconfig.json", "package.json"],
+      "dependsOn": [
+        "^typecheck"
+      ],
+      "inputs": [
+        "src/**",
+        "*.ts",
+        "*.mjs",
+        "tsconfig.json",
+        "package.json"
+      ],
       "outputs": []
     },
     "lint": {
-      "inputs": ["src/**", "seeds/**", "*.ts", "$TURBO_ROOT$/eslint.config.mjs", "package.json"],
+      "inputs": [
+        "src/**",
+        "*.ts",
+        "$TURBO_ROOT$/eslint.config.mjs",
+        "package.json"
+      ],
       "outputs": []
     },
     "test": {
-      "dependsOn": ["^test"],
-      "inputs": ["src/**", "$TURBO_ROOT$/supabase/migrations/**", "package.json"],
-      "env": ["DATABASE_URL"],
+      "dependsOn": [
+        "^test"
+      ],
+      "inputs": [
+        "src/**",
+        "package.json"
+      ],
+      "env": [
+        "DATABASE_URL"
+      ],
       "outputs": []
     }
   }

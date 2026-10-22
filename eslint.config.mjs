@@ -30,6 +30,9 @@ const coreAllowances = CORE_MODULES.flatMap((module) =>
 );
 
 const MAX_FUNCTION_LINES = 20;
+const MAX_FILE_LINES = 200;
+const LINT_COMMENT_RULES = { skipBlankLines: true, skipComments: true };
+const ASYNC_FILES = ['packages/*/**/*.ts', 'apps/api/**/*.ts', 'apps/telegram/**/*.ts'];
 
 const packageElements = {
   contracts: 'packages/contracts/src/**',
@@ -43,42 +46,49 @@ const packageElements = {
   site: 'apps/site/src/**',
 };
 
-// A test file can import any core layer, so a domain or application test can use fixtures and fakes.
+const TEST = 'test';
+const CORE_ENTRY = 'core-entry';
+const CORE_TESTING_ENTRY = 'core-testing-entry';
+
+// Single files are file categories, because element patterns match folders.
 const elements = [
-  { type: 'core-test', pattern: 'packages/core/src/**/*.test.ts', mode: 'file' },
   ...coreElements,
-  { type: 'core-testing-entry', pattern: 'packages/core/src/testing.ts', mode: 'file' },
-  { type: 'core-entry', pattern: 'packages/core/src/index.ts', mode: 'file' },
   ...Object.entries(packageElements).map(([type, pattern]) => ({ type, pattern })),
+];
+
+const fileCategories = [
+  { category: TEST, pattern: '**/*.test.ts' },
+  { category: CORE_ENTRY, pattern: 'packages/core/src/index.ts' },
+  { category: CORE_TESTING_ENTRY, pattern: 'packages/core/src/testing.ts' },
 ];
 
 const allowances = [
   ...coreAllowances,
-  { from: 'core-test', values: coreTypes(CORE_MODULES, CORE_LAYERS) },
-  { from: 'core-entry', values: coreTypes(CORE_MODULES, ['domain', 'ports', 'application']) },
-  { from: 'core-testing-entry', values: coreTypes(CORE_MODULES, ['domain', 'ports', 'testing']) },
+  { from: { file: { categories: TEST } }, values: coreTypes(CORE_MODULES, CORE_LAYERS) },
+  { from: { file: { categories: CORE_ENTRY } }, values: coreTypes(CORE_MODULES, ['domain', 'ports', 'application']) },
+  { from: { file: { categories: CORE_TESTING_ENTRY } }, values: coreTypes(CORE_MODULES, ['domain', 'ports', 'testing']) },
   { from: 'contracts', values: [] },
-  { from: 'database', values: ['core-entry'] },
-  { from: 'agent', values: ['core-entry', 'contracts'] },
+  { from: 'database', files: [CORE_ENTRY] },
+  { from: 'agent', values: ['contracts'], files: [CORE_ENTRY] },
   { from: 'providers', types: ['agent'] },
-  { from: 'evals', values: ['agent', 'core-entry', 'providers'] },
-  { from: 'api', values: ['core-entry', 'core-testing-entry', 'contracts', 'database', 'agent', 'providers'] },
+  { from: 'evals', values: ['agent', 'providers'], files: [CORE_ENTRY] },
+  { from: 'api', values: ['contracts', 'database', 'agent', 'providers'], files: [CORE_ENTRY, CORE_TESTING_ENTRY] },
   { from: 'telegram', values: ['contracts'] },
   { from: 'mobile', values: ['contracts'] },
   { from: 'site', values: [] },
 ];
 
-const selfAllowed = (from) => !from.endsWith('-ports');
+const selfAllowed = (from) => typeof from === 'string' && !from.endsWith('-ports');
+const fromSelector = (from) => (typeof from === 'string' ? { element: { type: from } } : from);
+const policy = (from, to, dependency) => ({ from: fromSelector(from), allow: { to, ...(dependency && { dependency }) } });
 
-const toPolicies = ({ from, values = [], types = [] }) => {
+const toPolicies = ({ from, values = [], types = [], files = [] }) => {
   const allValues = selfAllowed(from) ? [from, ...values] : values;
-  const valuePolicy = allValues.length
-    ? [{ from: { element: { type: from } }, allow: { to: { element: { type: allValues } } } }]
-    : [];
-  const typePolicy = types.length
-    ? [{ from: { element: { type: from } }, allow: { to: { element: { type: types } }, dependency: { kind: 'type' } } }]
-    : [];
-  return [...valuePolicy, ...typePolicy];
+  return [
+    ...(allValues.length ? [policy(from, { element: { type: allValues } })] : []),
+    ...(types.length ? [policy(from, { element: { type: types } }, { kind: 'type' })] : []),
+    ...(files.length ? [policy(from, { file: { categories: files } })] : []),
+  ];
 };
 
 const dependencyPolicies = allowances.flatMap(toPolicies);
@@ -93,16 +103,25 @@ export default defineConfig([
       'boundaries/root-path': import.meta.dirname,
       'boundaries/include': ['packages/*/src/**/*.ts', 'apps/*/src/**/*.ts'],
       'boundaries/elements': elements,
+      'boundaries/files': fileCategories,
     },
     plugins: { boundaries },
     rules: {
       'boundaries/no-unknown-files': 'error',
       'boundaries/dependencies': ['error', { default: 'disallow', policies: dependencyPolicies }],
-      'max-lines-per-function': ['error', { max: MAX_FUNCTION_LINES, skipBlankLines: true, skipComments: true }],
-      'prefer-const': 'error',
-      'no-var': 'error',
+      'max-lines-per-function': ['error', { max: MAX_FUNCTION_LINES, ...LINT_COMMENT_RULES }],
+      'max-lines': ['warn', { max: MAX_FILE_LINES, ...LINT_COMMENT_RULES }],
       eqeqeq: 'error',
-      '@typescript-eslint/no-non-null-assertion': 'error',
+      '@typescript-eslint/consistent-type-assertions': ['error', { assertionStyle: 'never' }],
+    },
+  },
+  {
+    // Type-aware rules need the TypeScript program, so they run only where promises exist.
+    files: ASYNC_FILES,
+    languageOptions: { parserOptions: { projectService: true, tsconfigRootDir: import.meta.dirname } },
+    rules: {
+      '@typescript-eslint/no-floating-promises': 'error',
+      '@typescript-eslint/no-misused-promises': 'error',
     },
   },
   {
@@ -129,6 +148,7 @@ export default defineConfig([
     files: [coreLayer('domain')],
     ignores: ['**/*.test.ts'],
     rules: {
+      // A later 'no-restricted-syntax' block replaces the earlier one in flat config, so the Date ban repeats here.
       'no-restricted-syntax': ['error',
         { selector: 'AwaitExpression', message: 'domain is synchronous' },
         { selector: ':function[async=true]', message: 'domain is synchronous' },
@@ -147,6 +167,10 @@ export default defineConfig([
   },
   {
     files: ['**/*.test.ts'],
-    rules: { 'max-lines-per-function': 'off' },
+    rules: {
+      'max-lines-per-function': 'off',
+      'max-lines': 'off',
+      '@typescript-eslint/consistent-type-assertions': ['error', { assertionStyle: 'as', objectLiteralTypeAssertions: 'never' }],
+    },
   },
 ]);

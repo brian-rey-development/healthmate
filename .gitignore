@@ -10,3 +10,8 @@ supabase/.branches
 .env.local
 supabase/snippets
 .astro
+.DS_Store
+.eslintcache
+supabase/.env
+.env.*.local
+*.log

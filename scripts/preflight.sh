@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 # Fails fast with an actionable message instead of a Docker socket stack trace.
 set -euo pipefail
+cd "$(dirname "$0")/.."
 
-readonly MIN_NODE_MAJOR=24
+MIN_NODE_MAJOR=$(cut -d. -f1 .node-version)
+readonly MIN_NODE_MAJOR
 
 fail() {
   printf 'preflight: %s\n' "$1" >&2

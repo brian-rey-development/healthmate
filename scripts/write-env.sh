@@ -17,6 +17,7 @@ pnpm exec supabase status -o json | node -e '
     `SUPABASE_PUBLISHABLE_KEY=${pick("PUBLISHABLE_KEY")}`,
     `SUPABASE_SECRET_KEY=${pick("SECRET_KEY")}`,
   ];
-  fs.writeFileSync(".env.local", lines.join("\n") + "\n");
+  fs.writeFileSync(".env.local", lines.join("\n") + "\n", { mode: 0o600 });
+  fs.chmodSync(".env.local", 0o600);
 '
 echo "Wrote .env.local"

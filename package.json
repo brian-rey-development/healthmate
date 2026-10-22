@@ -19,12 +19,13 @@
     "vitest": "^5.0.5"
   },
   "scripts": {
-    "verify": "turbo run typecheck lint test",
+    "verify": "turbo run typecheck lint test build",
     "stack:up": "scripts/stack-up.sh",
     "stack:down": "supabase stop",
     "stack:status": "supabase status",
     "stack:env": "scripts/write-env.sh",
     "db:generate": "pnpm --filter @healthmate/database db:generate",
+    "db:check": "pnpm --filter @healthmate/database db:check",
     "db:migrate": "supabase migration up --local",
     "db:reset": "scripts/db-reset.sh",
     "db:seed": "pnpm --filter @healthmate/database db:seed"
