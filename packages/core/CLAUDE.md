@@ -4,7 +4,7 @@ Read the `core` sections of `docs/technical/architecture.md` before a change her
 
 ## Layout
 
-- Each module is a folder in `src`, for example `src/entries`. The modules are `shared`, `entries`, `subjects`, `conversations` and `timeline`.
+- Each module is a folder in `src`, for example `src/entries`. The modules are `shared`, `entries`, `subjects` and `conversations`. The timeline is a use case in `entries`, because it only reads entries.
 - A module holds its layers as subfolders, `domain`, `ports`, `application` and `testing`. Make a layer folder only when the module needs it.
 - Put nothing at the root of `src` except `index.ts` and `testing.ts`. A part that more than 1 module uses goes in `shared`.
 - `src/index.ts` is `@healthmate/core`. It exports use cases, domain types and port interfaces.
@@ -21,7 +21,7 @@ Read the `core` sections of `docs/technical/architecture.md` before a change her
 
 - A module can import the same layer of another module, under the layer rules above.
 - `shared` imports no module. `entries` imports only `shared`. `subjects` imports only `shared`.
-- `conversations` and `timeline` can import `entries` and `subjects`.
+- `conversations` can import `entries` and `subjects`.
 - A proposal is a message, not a stored record. Its type and its rules live in `conversations/domain`.
 
 ## Code

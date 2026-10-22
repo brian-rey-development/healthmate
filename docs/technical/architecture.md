@@ -49,7 +49,6 @@ healthmate/
           testing/
         subjects/
         conversations/
-        timeline/
         index.ts
         testing.ts
     contracts/
@@ -100,10 +99,9 @@ Inside any package, a folder gets subfolders only when it passes roughly eight f
 | Module | Owns |
 |---|---|
 | `shared` | `Result`, `Clock`, `IdGenerator`, `UnitOfWork` and other parts that all modules use |
-| `entries` | Entries, their kinds, time with precision, corrections and versions |
+| `entries` | Entries, their kinds, time with precision, corrections, versions and the timeline. The timeline is a query on entries with no rules of its own, so it is a use case here and not a module |
 | `subjects` | The standard names that a person tracks |
 | `conversations` | Conversations, messages, citations and proposals. A proposal is a `tool_use` block in an assistant message, and a person decides it with a `tool_result` in a user message |
-| `timeline` | The read model of the timeline |
 
 The layer rules below apply inside each module and between modules.
 
@@ -120,7 +118,7 @@ The layer rules below apply inside each module and between modules.
 - `application` answers "what can someone do". A use case loads through ports, asks `domain` for a decision, and writes through ports.
 - `core` has two entry points. `src/index.ts` is `@healthmate/core` and exports use cases, domain types and port interfaces. `src/testing.ts` is `@healthmate/core/testing` and exports the in-memory ports.
 
-A module can import the same layer of another module, under the same layer rules. `conversations` and `timeline` can depend on `entries` and `subjects`. `entries` and `subjects` never depend on `conversations` or `timeline`. Every module can depend on `shared`, and `shared` depends on no module.
+A module can import the same layer of another module, under the same layer rules. `conversations` can depend on `entries` and `subjects`. `entries` and `subjects` never depend on `conversations`. Every module can depend on `shared`, and `shared` depends on no module.
 
 ### Where types live
 
