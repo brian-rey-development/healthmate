@@ -3,24 +3,32 @@ import js from '@eslint/js';
 import tseslint from 'typescript-eslint';
 import boundaries from 'eslint-plugin-boundaries';
 
-const CORE_LAYERS = ['domain', 'ports', 'application', 'testing'];
-const coreLayer = (layer) => `packages/core/src/*/${layer}/**`;
-
-// Which core modules each module must never import. Modules not listed may import any other module.
-const CORE_MODULE_BANS = {
-  shared: ['entries', 'subjects', 'conversations'],
-  entries: ['conversations'],
-  subjects: ['entries', 'conversations'],
+// A core module imports only itself and the modules before it. A new module goes at its place in this list.
+const CORE_MODULES = ['shared', 'subjects', 'entries', 'conversations'];
+const CORE_LAYER_IMPORTS = {
+  domain: { values: ['domain'] },
+  ports: { types: ['domain', 'ports'] },
+  application: { values: ['domain', 'ports'] },
+  testing: { values: ['domain', 'ports'] },
 };
-const NO_RUNTIME_DEPENDENCY = { regex: '^[^./]', message: 'core has zero runtime dependencies' };
-const coreImportRules = (bans = []) => ({
-  'no-restricted-imports': ['error', {
-    patterns: [
-      NO_RUNTIME_DEPENDENCY,
-      ...bans.map((module) => ({ group: [`**/${module}/**`], message: `this module never depends on ${module}` })),
-    ],
-  }],
-});
+const CORE_LAYERS = Object.keys(CORE_LAYER_IMPORTS);
+const coreLayer = (layer) => `packages/core/src/*/${layer}/**`;
+const coreType = (module, layer) => `core-${module}-${layer}`;
+const coreTypes = (modules, layers = []) => modules.flatMap((module) => layers.map((layer) => coreType(module, layer)));
+const modulesUpTo = (module) => CORE_MODULES.slice(0, CORE_MODULES.indexOf(module) + 1);
+
+const coreElements = CORE_MODULES.flatMap((module) =>
+  CORE_LAYERS.map((layer) => ({ type: coreType(module, layer), pattern: `packages/core/src/${module}/${layer}/**` })),
+);
+
+const coreAllowances = CORE_MODULES.flatMap((module) =>
+  CORE_LAYERS.map((layer) => ({
+    from: coreType(module, layer),
+    values: coreTypes(modulesUpTo(module), CORE_LAYER_IMPORTS[layer].values),
+    types: coreTypes(modulesUpTo(module), CORE_LAYER_IMPORTS[layer].types),
+  })),
+);
+
 const MAX_FUNCTION_LINES = 20;
 
 const packageElements = {
@@ -35,20 +43,20 @@ const packageElements = {
   site: 'apps/site/src/**',
 };
 
+// A test file can import any core layer, so a domain or application test can use fixtures and fakes.
 const elements = [
-  ...CORE_LAYERS.map((layer) => ({ type: `core-${layer}`, pattern: coreLayer(layer) })),
+  { type: 'core-test', pattern: 'packages/core/src/**/*.test.ts', mode: 'file' },
+  ...coreElements,
   { type: 'core-testing-entry', pattern: 'packages/core/src/testing.ts', mode: 'file' },
   { type: 'core-entry', pattern: 'packages/core/src/index.ts', mode: 'file' },
   ...Object.entries(packageElements).map(([type, pattern]) => ({ type, pattern })),
 ];
 
 const allowances = [
-  { from: 'core-domain', values: ['core-domain'] },
-  { from: 'core-ports', types: ['core-domain', 'core-ports'] },
-  { from: 'core-application', values: ['core-domain', 'core-ports'] },
-  { from: 'core-testing', values: ['core-domain', 'core-ports'] },
-  { from: 'core-entry', values: ['core-domain', 'core-ports', 'core-application'] },
-  { from: 'core-testing-entry', values: ['core-domain', 'core-ports', 'core-testing'] },
+  ...coreAllowances,
+  { from: 'core-test', values: coreTypes(CORE_MODULES, CORE_LAYERS) },
+  { from: 'core-entry', values: coreTypes(CORE_MODULES, ['domain', 'ports', 'application']) },
+  { from: 'core-testing-entry', values: coreTypes(CORE_MODULES, ['domain', 'ports', 'testing']) },
   { from: 'contracts', values: [] },
   { from: 'database', values: ['core-entry'] },
   { from: 'agent', values: ['core-entry', 'contracts'] },
@@ -60,7 +68,7 @@ const allowances = [
   { from: 'site', values: [] },
 ];
 
-const selfAllowed = (from) => from !== 'core-ports';
+const selfAllowed = (from) => !from.endsWith('-ports');
 
 const toPolicies = ({ from, values = [], types = [] }) => {
   const allValues = selfAllowed(from) ? [from, ...values] : values;
@@ -99,8 +107,9 @@ export default defineConfig([
   },
   {
     files: ['packages/core/src/**/*.ts'],
+    ignores: ['**/*.test.ts'],
     rules: {
-      ...coreImportRules(),
+      'no-restricted-imports': ['error', { patterns: [{ regex: '^[^./]', message: 'core has zero runtime dependencies' }] }],
       'no-restricted-properties': ['error',
         { object: 'Date', property: 'now', message: 'inject Clock from ports' },
         { object: 'Math', property: 'random', message: 'inject IdGenerator from ports' },
@@ -128,10 +137,6 @@ export default defineConfig([
       }],
     },
   },
-  ...Object.entries(CORE_MODULE_BANS).map(([module, bans]) => ({
-    files: [`packages/core/src/${module}/**/*.ts`],
-    rules: coreImportRules(bans),
-  })),
   {
     files: ['**/*.test.ts'],
     rules: { 'max-lines-per-function': 'off' },

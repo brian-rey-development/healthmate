@@ -118,7 +118,7 @@ The layer rules below apply inside each module and between modules.
 - `application` answers "what can someone do". A use case loads through ports, asks `domain` for a decision, and writes through ports.
 - `core` has two entry points. `src/index.ts` is `@healthmate/core` and exports use cases, domain types and port interfaces. `src/testing.ts` is `@healthmate/core/testing` and exports the in-memory ports.
 
-A module can import the same layer of another module, under the same layer rules. `conversations` can depend on `entries` and `subjects`. `entries` and `subjects` never depend on `conversations`. Every module can depend on `shared`, and `shared` depends on no module.
+The modules have a fixed order, `shared`, `subjects`, `entries`, `conversations`. A module imports only itself and the modules before it, under the same layer rules. `CORE_MODULES` in `eslint.config.mjs` holds this order, and ESLint rejects a module folder that is not in it. A test file can import every layer, so it can use fixtures and in-memory ports.
 
 ### Where types live
 

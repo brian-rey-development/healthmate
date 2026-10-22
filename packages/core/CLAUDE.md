@@ -6,7 +6,8 @@ Read the `core` sections of `docs/technical/architecture.md` before a change her
 
 - Each module is a folder in `src`, for example `src/entries`. The modules are `shared`, `entries`, `subjects` and `conversations`. The timeline is a use case in `entries`, because it only reads entries.
 - A module holds its layers as subfolders, `domain`, `ports`, `application` and `testing`. Make a layer folder only when the module needs it.
-- Put nothing at the root of `src` except `index.ts` and `testing.ts`. A part that more than 1 module uses goes in `shared`.
+- Put nothing at the root of `src` except `index.ts` and `testing.ts`.
+- Test data that more than 1 test file uses goes in `testing/<module>.fixtures.ts`. A part that more than 1 module uses goes in `shared`.
 - `src/index.ts` is `@healthmate/core`. It exports use cases, domain types and port interfaces.
 - `src/testing.ts` is `@healthmate/core/testing`. It exports the in-memory ports. Only tests and `apps/api` import it.
 
@@ -19,9 +20,9 @@ Read the `core` sections of `docs/technical/architecture.md` before a change her
 
 ## Modules
 
-- A module can import the same layer of another module, under the layer rules above.
-- `shared` imports no module. `entries` imports only `shared`. `subjects` imports only `shared`.
-- `conversations` can import `entries` and `subjects`.
+- The modules have a fixed order, `shared`, `subjects`, `entries`, `conversations`. A module imports only itself and the modules before it, under the layer rules above.
+- `CORE_MODULES` in `eslint.config.mjs` holds the order. Add a new module at its place in that list, or lint fails.
+- A `*.test.ts` file can import every layer, so it can use fixtures and in-memory ports from `testing`.
 - A proposal is a message, not a stored record. Its type and its rules live in `conversations/domain`.
 
 ## Code
