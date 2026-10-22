@@ -42,12 +42,13 @@ healthmate/
     core/
       src/
         shared/
+        users/
+        subjects/
         entries/
           domain/
           ports/
           application/
           testing/
-        subjects/
         conversations/
         index.ts
         testing.ts
@@ -99,8 +100,9 @@ Inside any package, a folder gets subfolders only when it passes roughly eight f
 | Module | Owns |
 |---|---|
 | `shared` | `Result`, `Clock`, `IdGenerator`, `UnitOfWork` and other parts that all modules use |
-| `entries` | Entries, their kinds, time with precision, corrections, versions and the timeline. The timeline is a query on entries with no rules of its own, so it is a use case here and not a module |
+| `users` | The profile of a person. Its id is the id of the auth identity |
 | `subjects` | The standard names that a person tracks |
+| `entries` | Entries, their kinds, time with precision, corrections, versions and the timeline. The timeline is a query on entries with no rules of its own, so it is a use case here and not a module |
 | `conversations` | Conversations, messages, citations and proposals. A proposal is a `tool_use` block in an assistant message, and a person decides it with a `tool_result` in a user message |
 
 The layer rules below apply inside each module and between modules.
@@ -110,15 +112,15 @@ The layer rules below apply inside each module and between modules.
 |---|---|---|---|
 | `domain` | Entities, value types, invariants, pure rules | Other `domain` code | `async`, I/O, `ports`, `application` |
 | `ports` | Interfaces for everything outside the domain | `domain` (types only) | Implementations of any kind |
-| `application` | Use cases that orchestrate domain rules through ports | `domain`, `ports` | Concrete implementations, `testing` |
-| `testing` | In-memory implementations of every port | `domain`, `ports` | Being imported by `domain` or `application` |
+| `application` | Use cases that orchestrate domain rules through ports | `domain`, `ports`, use cases of earlier modules | Concrete implementations, `testing` |
+| `testing` | In-memory implementations of the ports that use cases use | `domain`, `ports` | Being imported by `domain` or `application` |
 
 - `domain` answers "what is valid". It returns decisions and touches nothing.
 - `ports` answers "what does the domain need from the outside world". Repositories, clock, id generation and transactions are interfaces here.
 - `application` answers "what can someone do". A use case loads through ports, asks `domain` for a decision, and writes through ports.
 - `core` has two entry points. `src/index.ts` is `@healthmate/core` and exports use cases, domain types and port interfaces. `src/testing.ts` is `@healthmate/core/testing` and exports the in-memory ports.
 
-The modules have a fixed order, `shared`, `subjects`, `entries`, `conversations`. A module imports only itself and the modules before it, under the same layer rules. `CORE_MODULES` in `eslint.config.mjs` holds this order, and ESLint rejects a module folder that is not in it. A test file can import every layer, so it can use fixtures and in-memory ports.
+The modules have a fixed order, `shared`, `users`, `subjects`, `entries`, `conversations`. A module imports only itself and the modules before it, under the same layer rules. `CORE_MODULES` in `eslint.config.mjs` holds this order, and ESLint rejects a module folder that is not in it. A test file can import every layer, so it can use fixtures and in-memory ports.
 
 ### Where types live
 

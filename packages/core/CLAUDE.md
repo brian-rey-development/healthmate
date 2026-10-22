@@ -4,7 +4,7 @@ Read the `core` sections of `docs/technical/architecture.md` before a change her
 
 ## Layout
 
-- Each module is a folder in `src`, for example `src/entries`. The modules are `shared`, `entries`, `subjects` and `conversations`. The timeline is a use case in `entries`, because it only reads entries.
+- Each module is a folder in `src`, for example `src/entries`. The modules are `shared`, `users`, `subjects`, `entries` and `conversations`. The timeline is a use case in `entries`, because it only reads entries.
 - A module holds its layers as subfolders, `domain`, `ports`, `application` and `testing`. Make a layer folder only when the module needs it.
 - Put nothing at the root of `src` except `index.ts` and `testing.ts`.
 - Test data that more than 1 test file uses goes in `testing/<module>.fixtures.ts`. A part that more than 1 module uses goes in `shared`.
@@ -15,12 +15,12 @@ Read the `core` sections of `docs/technical/architecture.md` before a change her
 
 - `domain` holds types, values and pure rules. It has no `async`, no I/O and no `Date`. It imports only `domain` code.
 - `ports` holds interfaces and types only, one interface in each file. It imports `domain` types only.
-- `application` holds use cases. A use case loads through ports, asks `domain` for a decision and writes through ports. It imports `domain` and `ports`.
-- `testing` holds an in-memory implementation of each port. It imports `domain` and `ports`.
+- `application` holds use cases. A use case loads through ports, asks `domain` for a decision and writes through ports. It imports `domain` and `ports`, and the use cases of earlier modules, so `confirmProposal` can call `recordEntry`.
+- `testing` holds an in-memory implementation of each port that a use case uses. It imports `domain` and `ports`.
 
 ## Modules
 
-- The modules have a fixed order, `shared`, `subjects`, `entries`, `conversations`. A module imports only itself and the modules before it, under the layer rules above.
+- The modules have a fixed order, `shared`, `users`, `subjects`, `entries`, `conversations`. A module imports only itself and the modules before it, under the layer rules above.
 - `CORE_MODULES` in `eslint.config.mjs` holds the order. Add a new module at its place in that list, or lint fails.
 - A `*.test.ts` file can import every layer, so it can use fixtures and in-memory ports from `testing`.
 - A proposal is a message, not a stored record. Its type and its rules live in `conversations/domain`.

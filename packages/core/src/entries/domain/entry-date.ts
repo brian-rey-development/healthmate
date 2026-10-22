@@ -1,6 +1,8 @@
 import { err, ok, type Result } from '../../shared/domain/result';
 
-export type DatePrecision = 'day' | 'month' | 'year';
+export const DATE_PRECISIONS = ['day', 'month', 'year'] as const;
+
+export type DatePrecision = (typeof DATE_PRECISIONS)[number];
 
 export type EntryDate = { readonly date: string; readonly precision: DatePrecision };
 

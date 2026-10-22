@@ -4,11 +4,11 @@ import tseslint from 'typescript-eslint';
 import boundaries from 'eslint-plugin-boundaries';
 
 // A core module imports only itself and the modules before it. A new module goes at its place in this list.
-const CORE_MODULES = ['shared', 'subjects', 'entries', 'conversations'];
+const CORE_MODULES = ['shared', 'users', 'subjects', 'entries', 'conversations'];
 const CORE_LAYER_IMPORTS = {
   domain: { values: ['domain'] },
   ports: { types: ['domain', 'ports'] },
-  application: { values: ['domain', 'ports'] },
+  application: { values: ['domain', 'ports', 'application'] },
   testing: { values: ['domain', 'ports'] },
 };
 const CORE_LAYERS = Object.keys(CORE_LAYER_IMPORTS);
@@ -110,6 +110,13 @@ export default defineConfig([
     ignores: ['**/*.test.ts'],
     rules: {
       'no-restricted-imports': ['error', { patterns: [{ regex: '^[^./]', message: 'core has zero runtime dependencies' }] }],
+    },
+  },
+  {
+    // Tests and fakes pin time and ids on purpose, so only production code must inject them.
+    files: ['packages/core/src/**/*.ts'],
+    ignores: ['**/*.test.ts', coreLayer('testing')],
+    rules: {
       'no-restricted-properties': ['error',
         { object: 'Date', property: 'now', message: 'inject Clock from ports' },
         { object: 'Math', property: 'random', message: 'inject IdGenerator from ports' },
@@ -120,6 +127,7 @@ export default defineConfig([
   },
   {
     files: [coreLayer('domain')],
+    ignores: ['**/*.test.ts'],
     rules: {
       'no-restricted-syntax': ['error',
         { selector: 'AwaitExpression', message: 'domain is synchronous' },

@@ -3,11 +3,18 @@ import type { Severity } from './severity';
 
 export type EntrySource = { readonly messageId: string; readonly toolUseId: string | null };
 
-type EntryBase = {
+// Times are "HH:MM:SS" in the time zone of the entry. An open entry has no end date.
+export type EntryTimes = {
+  readonly start: EntryDate;
+  readonly startTime: string | null;
+  readonly endDate: string | null;
+  readonly endTime: string | null;
+};
+
+type EntryBase = EntryTimes & {
   readonly id: string;
   readonly userId: string;
   readonly version: number;
-  readonly start: EntryDate;
   readonly originalWords: string;
   readonly timeZone: string;
   readonly source: EntrySource;
@@ -23,4 +30,8 @@ export type SymptomEntry = EntryBase & {
 
 export type Entry = NoteEntry | SymptomEntry;
 
-export type Kind = Entry['kind'];
+export const KINDS = ['note', 'symptom'] as const satisfies readonly Entry['kind'][];
+
+export type Kind = (typeof KINDS)[number];
+
+export type EntryVersion = Entry & { readonly recordedAt: Date };

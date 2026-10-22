@@ -4,14 +4,17 @@ import type { Severity } from './severity';
 
 export type EntryDraft = {
   readonly kind: Kind;
-  readonly originalWords?: string;
+  readonly originalWords: string;
   readonly start?: EntryDate;
+  readonly startTime?: string;
+  readonly endDate?: string;
+  readonly endTime?: string;
   readonly subjectId?: string;
   readonly severity?: Severity;
 };
 
 const REQUIRED_FIELDS = {
-  note: ['originalWords', 'start'],
+  note: ['start'],
   symptom: ['subjectId', 'severity', 'start'],
 } as const satisfies Record<Kind, readonly (keyof EntryDraft)[]>;
 

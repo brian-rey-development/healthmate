@@ -18,6 +18,6 @@ export const correctEntry = async (
   if (!entry) return err('not_found');
   const corrected = applyCorrection(entry, input);
   if (!corrected.ok) return corrected;
-  const saved = await entries.saveCorrection(corrected.value, input.expectedVersion, clock.now());
-  return saved ? corrected : err('stale_version');
+  const correction = { entry: corrected.value, expectedVersion: input.expectedVersion, updatedAt: clock.now() };
+  return (await entries.correct(correction)) ? corrected : err('stale_version');
 };
