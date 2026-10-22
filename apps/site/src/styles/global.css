@@ -1,6 +1,22 @@
 @import 'tailwindcss';
-@import '@fontsource-variable/bricolage-grotesque';
-@import '@fontsource-variable/atkinson-hyperlegible-next';
+
+@font-face {
+  font-family: 'Bricolage Grotesque Variable';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 200 800;
+  src: url('@fontsource-variable/bricolage-grotesque/files/bricolage-grotesque-latin-wght-normal.woff2')
+    format('woff2-variations');
+}
+
+@font-face {
+  font-family: 'Atkinson Hyperlegible Next Variable';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 200 800;
+  src: url('@fontsource-variable/atkinson-hyperlegible-next/files/atkinson-hyperlegible-next-latin-wght-normal.woff2')
+    format('woff2-variations');
+}
 
 @theme {
   --color-primary: #137c72;
@@ -23,12 +39,13 @@
   }
 
   h1,
-  h2 {
+  h2,
+  h3 {
     @apply font-display text-balance;
   }
 
   :focus-visible {
-    @apply outline-3 outline-offset-3 outline-primary rounded-md;
+    @apply outline-3 outline-offset-3 outline-primary;
   }
 }
 

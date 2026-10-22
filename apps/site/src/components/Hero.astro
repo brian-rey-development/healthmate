@@ -11,7 +11,7 @@ import { SITE } from '../data/site';
   <div class="grid justify-items-start gap-6">
     <p class="rounded-full bg-mint/50 px-3.5 py-1.5 text-sm font-bold">{SITE.status}</p>
     <h1 id="hero-title" class="text-5xl leading-[1.04] font-bold tracking-tight md:text-7xl">{SITE.headline}</h1>
-    <p class="max-w-[44ch] text-lg text-ink/75 md:text-xl">{SITE.description}</p>
+    <p class="max-w-[44ch] text-lg text-ink/80 md:text-xl">{SITE.description}</p>
     <a
       class="inline-flex min-h-13 items-center rounded-full bg-primary px-6.5 font-bold text-surface no-underline transition-colors hover:bg-ink"
       href={SITE.repoUrl}
@@ -22,7 +22,8 @@ import { SITE } from '../data/site';
   <div class="row-start-1 flex aspect-square w-[min(80%,22rem)] items-end justify-center justify-self-center overflow-hidden rounded-full bg-mint/45 md:row-auto md:w-full md:max-w-md">
     <Image
       src={message}
-      alt="A person sends a message from their phone"
+      alt=""
+      width={672}
       loading="eager"
       fetchpriority="high"
       class="w-3/4"

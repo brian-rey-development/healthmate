@@ -6,6 +6,9 @@ on:
     paths:
       - apps/site/**
       - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+      - package.json
+      - tsconfig.base.json
       - .github/workflows/pages.yml
   workflow_dispatch:
 
