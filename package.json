@@ -1,0 +1,32 @@
+{
+  "name": "healthmate",
+  "private": true,
+  "packageManager": "pnpm@10.34.6",
+  "engines": {
+    "node": ">=24"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "~24.19.2",
+    "eslint": "^10.13.0",
+    "eslint-import-resolver-typescript": "^4.4.5",
+    "eslint-plugin-boundaries": "^7.2.1",
+    "supabase": "2.121.0",
+    "tsx": "^4.23.15",
+    "turbo": "^2.11.10",
+    "typescript": "~6.0.3",
+    "typescript-eslint": "^8.72.0",
+    "vitest": "^5.0.5"
+  },
+  "scripts": {
+    "verify": "turbo run typecheck lint test",
+    "stack:up": "scripts/stack-up.sh",
+    "stack:down": "supabase stop",
+    "stack:status": "supabase status",
+    "stack:env": "scripts/write-env.sh",
+    "db:generate": "pnpm --filter @healthmate/db db:generate",
+    "db:migrate": "supabase migration up --local",
+    "db:reset": "scripts/db-reset.sh",
+    "db:seed": "pnpm --filter @healthmate/db db:seed"
+  }
+}

@@ -1,0 +1,10 @@
+packages:
+  - apps/*
+  - packages/*
+
+onlyBuiltDependencies:
+  - supabase
+  - unrs-resolver
+
+ignoredBuiltDependencies:
+  - esbuild

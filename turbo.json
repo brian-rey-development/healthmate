@@ -1,0 +1,21 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "globalDependencies": ["tsconfig.base.json"],
+  "tasks": {
+    "typecheck": {
+      "dependsOn": ["^typecheck"],
+      "inputs": ["src/**", "seeds/**", "*.ts", "tsconfig.json", "package.json"],
+      "outputs": []
+    },
+    "lint": {
+      "inputs": ["src/**", "seeds/**", "*.ts", "$TURBO_ROOT$/eslint.config.mjs", "package.json"],
+      "outputs": []
+    },
+    "test": {
+      "dependsOn": ["^test"],
+      "inputs": ["src/**", "$TURBO_ROOT$/supabase/migrations/**", "package.json"],
+      "env": ["DATABASE_URL"],
+      "outputs": []
+    }
+  }
+}

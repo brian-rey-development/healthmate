@@ -1,0 +1,166 @@
+// HealthMate data schema, v0.1. Decisions and reasons are in adr/004-data-model.md.
+// The Drizzle schema in packages/db/src/schema.ts is the source of truth for code.
+// Update this file in the same change as the schema.
+
+Project healthmate {
+  database_type: 'PostgreSQL'
+  Note: 'Every table has RLS on. All data belongs to one user. Postgres 17.'
+}
+
+Enum kind {
+  note
+  symptom
+}
+
+Enum date_precision {
+  day
+  month
+  year
+}
+
+Enum channel {
+  telegram
+  web
+}
+
+Enum message_role {
+  user
+  assistant
+  tool
+}
+
+Enum tool_call_status {
+  pending
+  confirmed
+  discarded
+  expired
+  done
+}
+
+Enum tool_call_maker {
+  agent
+  person
+}
+
+Table users {
+  id uuid [pk, note: 'Same id as auth.users. On delete restrict.']
+  display_name text [not null]
+  created_at timestamptz [not null]
+
+  Note: 'One row for each person who uses HealthMate.'
+}
+
+Table subjects {
+  id uuid [pk]
+  user_id uuid [ref: > users.id, note: 'Null for a seed row that all users see.']
+  kind kind [not null, note: 'Never note.']
+  name text [not null, note: 'For example "headache".']
+  created_at timestamptz [not null]
+
+  indexes {
+    (id, kind) [unique, note: 'Target of the composite foreign key from entries.']
+    (user_id, kind, name) [unique, note: 'On lower(name), NULLS NOT DISTINCT.']
+    name [type: gin, note: 'pg_trgm, for search_subjects.']
+  }
+
+  Note: 'The standard names that a person tracks. A person reads seed rows and their own rows, and writes only their own rows.'
+}
+
+Table entries {
+  id uuid [pk, note: 'Stays the same through all corrections.']
+  user_id uuid [not null, ref: > users.id]
+  subject_id uuid [note: 'Null for a note.']
+  tool_call_id text [not null, ref: > tool_calls.id, note: 'The tool call that made the current version.']
+  version integer [not null, default: 1, note: 'Each correction adds 1. An update must match the version that the agent read.']
+  kind kind [not null]
+  value jsonb [not null, note: 'Checked by the zod schema of the kind. Symptom is {"severity": 0-10}. Note is {}.']
+  original_words text [not null]
+  start_date date [not null]
+  start_precision date_precision [not null]
+  start_time time
+  end_date date [note: 'Null while the entry is open.']
+  end_time time
+  time_zone text [not null, note: 'IANA zone, for example Europe/Madrid.']
+  created_at timestamptz [not null, note: 'Time of the first confirm.']
+  updated_at timestamptz [not null, note: 'Time of the last correction.']
+
+  indexes {
+    (user_id, start_date)
+  }
+
+  Note: 'The current data of each confirmed health fact. A trigger copies each insert and update into entry_history. No delete.'
+}
+
+Table entry_history {
+  entry_id uuid [not null, ref: > entries.id]
+  version integer [not null]
+  tool_call_id text [not null, unique, ref: > tool_calls.id, note: 'One tool call makes at most one version.']
+  user_id uuid [not null]
+  subject_id uuid
+  kind kind [not null]
+  value jsonb [not null]
+  original_words text [not null]
+  start_date date [not null]
+  start_precision date_precision [not null]
+  start_time time
+  end_date date
+  end_time time
+  time_zone text [not null]
+  recorded_at timestamptz [not null]
+
+  indexes {
+    (entry_id, version) [pk]
+  }
+
+  Note: 'A copy of each version of each entry, the current version included. Insert only. Only the trigger writes here.'
+}
+
+Table conversations {
+  id uuid [pk]
+  user_id uuid [not null, ref: > users.id]
+  channel channel [not null]
+  created_at timestamptz [not null]
+
+  Note: 'One session with the agent in one channel.'
+}
+
+Table messages {
+  id uuid [pk]
+  conversation_id uuid [not null, ref: > conversations.id]
+  role message_role [not null]
+  content jsonb [not null, note: 'List of blocks. A block is text, tool_use or tool_result.']
+  transcript text [note: 'Raw text of a voice message. The audio is deleted after transcription.']
+  model text [note: 'For an assistant message.']
+  prompt_version text [note: 'For an assistant message.']
+  created_at timestamptz [not null]
+
+  Note: 'Each message in a conversation, in the shape of the LLM APIs. Insert only.'
+}
+
+Table tool_calls {
+  id text [pk, note: 'The tool_use id from the model, or a new id from the web form.']
+  message_id uuid [ref: > messages.id, note: 'The assistant message. Null for the web form.']
+  name text [not null, note: 'For example propose_entry, propose_correction, search_subjects.']
+  input jsonb [not null, note: 'Checked by the zod schema of the tool.']
+  status tool_call_status [not null, note: 'Confirm changes pending to confirmed only once. A read is done at once.']
+  made_by tool_call_maker [not null]
+  decided_at timestamptz
+  created_at timestamptz [not null, note: 'The age of a pending proposal comes from this value.']
+
+  Note: 'Each tool call from the agent or the web form. A proposal is a pending tool call.'
+}
+
+Table citations {
+  message_id uuid [not null, ref: > messages.id]
+  entry_id uuid [not null]
+  version integer [not null]
+
+  indexes {
+    (message_id, entry_id, version) [pk]
+  }
+
+  Note: 'Link from an answer to each exact entry version that it used.'
+}
+
+Ref: entries.(subject_id, kind) > subjects.(id, kind)
+Ref: citations.(entry_id, version) > entry_history.(entry_id, version)
