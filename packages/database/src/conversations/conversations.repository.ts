@@ -1,37 +1,41 @@
+import type { Conversation, ConversationsRepository } from '@healthmate/core';
 import { and, desc, eq } from 'drizzle-orm';
-import type { Channel } from '../enums';
 import type { Executor } from '../executor';
-import { first, single } from '../rows';
-import { conversations, type ConversationRow, type NewConversationRow } from './conversations.table';
+import { first } from '../rows';
+import { conversations, type ConversationRow } from './conversations.table';
+
+const toConversation = ({ id, userId, channel }: ConversationRow): Conversation => ({ id, userId, channel });
+
+const owned = (userId: string, id: string) => and(eq(conversations.userId, userId), eq(conversations.id, id));
 
 const findById =
-  (db: Executor) =>
-  async (userId: string, id: string): Promise<ConversationRow | undefined> =>
-    first(
-      await db
-        .select()
-        .from(conversations)
-        .where(and(eq(conversations.userId, userId), eq(conversations.id, id))),
-    );
+  (db: Executor): ConversationsRepository['findById'] =>
+  async (userId, id) => {
+    const row = first(await db.select().from(conversations).where(owned(userId, id)));
+    return row && toConversation(row);
+  };
 
 const findLatest =
-  (db: Executor) =>
-  async (userId: string, channel: Channel): Promise<ConversationRow | undefined> =>
-    first(
-      await db
-        .select()
-        .from(conversations)
-        .where(and(eq(conversations.userId, userId), eq(conversations.channel, channel)))
-        .orderBy(desc(conversations.createdAt))
-        .limit(1),
-    );
+  (db: Executor): ConversationsRepository['findLatest'] =>
+  async (userId, channel) => {
+    const inChannel = and(eq(conversations.userId, userId), eq(conversations.channel, channel));
+    const rows = await db
+      .select()
+      .from(conversations)
+      .where(inChannel)
+      .orderBy(desc(conversations.createdAt), desc(conversations.id))
+      .limit(1);
+    const row = first(rows);
+    return row && toConversation(row);
+  };
 
 const insert =
-  (db: Executor) =>
-  async (row: NewConversationRow): Promise<ConversationRow> =>
-    single(await db.insert(conversations).values(row).returning());
+  (db: Executor): ConversationsRepository['insert'] =>
+  async (conversation, createdAt) => {
+    await db.insert(conversations).values({ ...conversation, createdAt });
+  };
 
-export const createConversationsRepository = (db: Executor) => ({
+export const createConversationsRepository = (db: Executor): ConversationsRepository => ({
   findById: findById(db),
   findLatest: findLatest(db),
   insert: insert(db),

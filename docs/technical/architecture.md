@@ -41,10 +41,17 @@ healthmate/
   packages/
     core/
       src/
-        domain/
-        ports/
-        application/
-        testing/
+        shared/
+        users/
+        subjects/
+        entries/
+          domain/
+          ports/
+          application/
+          testing/
+        conversations/
+        index.ts
+        testing.ts
     contracts/
     database/
       seeds/
@@ -86,26 +93,39 @@ Inside any package, a folder gets subfolders only when it passes roughly eight f
 | `apps/telegram`, `apps/mobile` | Thin channel adapters that talk to `api` through the client in `contracts`. |
 | `apps/site` | Public product page, built with Astro and deployed to GitHub Pages. Imports no workspace package. |
 
-## `core` layers
+## `core` modules and layers
+
+`core` is split into modules. Each module is a folder in `packages/core/src` that holds the 4 layers as subfolders, `domain`, `ports`, `application` and `testing`. A module has only the layers that it needs. The modules follow the data model.
+
+| Module | Owns |
+|---|---|
+| `shared` | `Result`, `Clock`, `IdGenerator` and other parts that all modules use |
+| `users` | The profile of a person. Its id is the id of the auth identity |
+| `subjects` | The standard names that a person tracks |
+| `entries` | Entries, their kinds, time with precision, corrections, versions and the timeline. The timeline is a query on entries with no rules of its own, so it is a use case here and not a module |
+| `conversations` | Conversations, messages, citations and proposals. A proposal is a `tool_use` block in an assistant message, and a person decides it with a `tool_result` in a user message |
+
+The layer rules below apply inside each module and between modules.
+
 
 | Layer | Contains | May import | Never |
 |---|---|---|---|
 | `domain` | Entities, value types, invariants, pure rules | Other `domain` code | `async`, I/O, `ports`, `application` |
 | `ports` | Interfaces for everything outside the domain | `domain` (types only) | Implementations of any kind |
-| `application` | Use cases that orchestrate domain rules through ports | `domain`, `ports` | Concrete implementations, `testing` |
-| `testing` | In-memory implementations of every port | `domain`, `ports` | Being imported by `domain` or `application` |
+| `application` | Use cases that orchestrate domain rules through ports | `domain`, `ports`, use cases of earlier modules | Concrete implementations, `testing` |
+| `testing` | In-memory implementations of the ports that use cases use | `domain`, `ports` | Being imported by `domain` or `application` |
 
 - `domain` answers "what is valid". It returns decisions and touches nothing.
-- `ports` answers "what does the domain need from the outside world". Repositories, clock, id generation and transactions are interfaces here.
+- `ports` answers "what does the domain need from the outside world". Repositories, clock and id generation are interfaces here.
 - `application` answers "what can someone do". A use case loads through ports, asks `domain` for a decision, and writes through ports.
-- `core` has two entry points. `@healthmate/core` exports use cases, domain types and port interfaces, and `@healthmate/core/testing` exports the in-memory ports.
+- `core` has two entry points. `src/index.ts` is `@healthmate/core` and exports use cases, domain types and port interfaces. `src/testing.ts` is `@healthmate/core/testing` and exports the in-memory ports.
 
-Modules (entries, records, proposals, timeline, audit) repeat inside each layer. A module that owns versioning knows nothing about entry kinds. Proposals can depend on entries and records. Entries and records never depend on proposals.
+The modules have a fixed order, `shared`, `users`, `subjects`, `entries`, `conversations`. A module imports only itself and the modules before it, under the same layer rules. `CORE_MODULES` in `eslint.config.mjs` holds this order, and ESLint rejects a module folder that is not in it. A test file can import every layer, so it can use fixtures and in-memory ports.
 
 ### Where types live
 
-- Domain types live in `domain`, with the module they belong to.
-- Interfaces live in `ports`, one per file.
+- Domain types live in the `domain` folder of the module they belong to.
+- Interfaces live in the `ports` folder of their module, one per file.
 - A use case's dependencies, input and error union live in the same file as the use case.
 
 There is no `types/` or `interfaces/` folder. Grouping by kind of TypeScript construct separates things that change together.
@@ -132,7 +152,7 @@ Three kinds of shapes exist. They change for different reasons, so they live in 
 
 | Shape | Purpose | Location | Naming |
 |---|---|---|---|
-| Domain type | What something is and its rules | `core/domain` | `Symptom`, `Proposal` |
+| Domain type | What something is and its rules | `core/src/<module>/domain` | `SymptomEntry`, `Message` |
 | Wire schema | What crosses a boundary | `contracts`, or the agent tool that receives it | `proposalViewSchema`, `ProposalView` |
 | Stored shape | How it's persisted | `database` | `SymptomRow`, `symptomPayloadV1` |
 
@@ -147,22 +167,22 @@ Three kinds of shapes exist. They change for different reasons, so they live in 
 A use case is an async function that takes its dependencies first and its input second, and returns a `Result`. The decision belongs to a pure function in `domain`; the use case only loads, asks and writes.
 
 ```ts
-export type ConfirmProposalDeps = { uow: UnitOfWork; clock: Clock }
+export type ConfirmProposalDeps = {
+  readonly messages: MessagesRepository;
+  readonly entries: EntriesRepository;
+  readonly clock: Clock;
+};
 
-export type ConfirmProposalError =
-  | "not_found"
-  | "already_confirmed"
-  | "expired"
-  | "stale"
+export type ConfirmProposalError = ProposalError | RecordEntryError;
 
-export async function confirmProposal(
+export const confirmProposal = async (
   deps: ConfirmProposalDeps,
-  input: { proposalId: string; actorId: string },
-): Promise<Result<{ recordId: string }, ConfirmProposalError>>
+  input: ConfirmProposalInput,
+): Promise<Result<Entry, ConfirmProposalError>> => { ... };
 ```
 
 - Expected failures are values in the error union. Throwing is reserved for bugs and infrastructure failures.
-- Anything that writes more than one thing runs inside a single unit of work.
+- `core` has no unit of work port, because no use case writes more than 1 row yet. The api sets the transaction with `inTransaction` from `database` when a use case needs one.
 - Time comes from `Clock`, ids from `IdGenerator`. Never call `Date.now()` or generate ids inline in `core`.
 - Error names are snake_case string literals so they serialize cleanly to the agent and the API.
 
@@ -192,8 +212,8 @@ export async function confirmProposal(
 
 | Layer | How |
 |---|---|
-| `core/domain` | Pure unit tests, no fakes |
-| `core/application` | Unit tests against `core/testing` |
+| `core` `domain` | Pure unit tests, no fakes |
+| `core` `application` | Unit tests against the in-memory ports in `testing` |
 | `database` | Integration tests against the local Supabase Postgres, each in a rolled-back transaction |
 | `agent` | Loop and tools with a scripted model client replaying recorded responses |
 | `apps/api` | Route tests with fakes wired in |
@@ -230,7 +250,7 @@ Every task names the package it touches, the use case or tool involved, and the 
 3. Local Supabase stack through the CLI, with scripts to start it, write `.env.local`, migrate and seed.
 4. Write ADR-001 (stack) and a first draft of the threat model.
 5. Define the first table in the Drizzle schema and commit the generated migration.
-6. In `core`, write the domain with pure tests, then the ports, then the use cases tested against `core/testing`.
+6. In each `core` module, write the domain with pure tests, then the ports, then the use cases tested against the in-memory ports.
 7. In `database`, write the repositories, the unit of work and the integration tests.
 8. In `agent`, write the loop, the budgets and the tools against a scripted model client.
 9. Write the first 25 eval cases before connecting a real model.

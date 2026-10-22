@@ -1,7 +1,7 @@
 import { sql } from 'drizzle-orm';
 import { check, foreignKey, index, integer, pgTable, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core';
+import { messages } from '../conversations/messages.table';
 import { subjects } from '../subjects/subjects.table';
-import { toolCalls } from '../tool-calls/tool-calls.table';
 import { users } from '../users/users.table';
 import { entryDataColumns } from './entry-data.columns';
 
@@ -13,10 +13,11 @@ export const entries = pgTable(
       .notNull()
       .references(() => users.id),
     ...entryDataColumns(),
-    toolCallId: text()
+    sourceMessageId: uuid()
       .notNull()
-      .references(() => toolCalls.id),
-    version: integer().notNull().default(1),
+      .references(() => messages.id),
+    sourceToolUseId: text(),
+    version: integer().notNull(),
     createdAt: timestamp({ withTimezone: true }).notNull(),
     updatedAt: timestamp({ withTimezone: true }).notNull(),
   },
@@ -26,9 +27,8 @@ export const entries = pgTable(
       columns: [t.subjectId, t.kind],
       foreignColumns: [subjects.id, subjects.kind],
     }),
-    unique('entries_tool_call_id_unique').on(t.toolCallId),
-    index('entries_user_start_idx').on(t.userId, t.startDate),
-    index('entries_user_subject_start_idx').on(t.userId, t.subjectId, t.startDate),
+    unique('entries_source_unique').on(t.sourceMessageId, t.sourceToolUseId).nullsNotDistinct(),
+    index('entries_user_start_id_idx').on(t.userId, t.startDate.desc().nullsFirst(), t.id),
     check('entries_subject_matches_kind', sql`(${t.kind} = 'note') = (${t.subjectId} is null)`),
     check('entries_version_positive', sql`${t.version} >= 1`),
     check('entries_start_time_needs_day', sql`${t.startTime} is null or ${t.startPrecision} = 'day'`),

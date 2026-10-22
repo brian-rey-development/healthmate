@@ -44,9 +44,29 @@ importers:
         specifier: ^5.0.5
         version: 5.0.5(@types/node@24.19.2)(vite@8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
 
-  apps/api: {}
+  apps/api:
+    dependencies:
+      '@healthmate/agent':
+        specifier: workspace:*
+        version: link:../../packages/agent
+      '@healthmate/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
+      '@healthmate/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@healthmate/database':
+        specifier: workspace:*
+        version: link:../../packages/database
+      '@healthmate/providers':
+        specifier: workspace:*
+        version: link:../../packages/providers
 
-  apps/mobile: {}
+  apps/mobile:
+    dependencies:
+      '@healthmate/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
 
   apps/site:
     dependencies:
@@ -72,13 +92,21 @@ importers:
       '@astrojs/check':
         specifier: ^0.9.12
         version: 0.9.12(@emnapi/runtime@1.11.3)(prettier@3.9.10)(typescript@6.0.3)
-      typescript:
-        specifier: ~6.0.3
-        version: 6.0.3
 
-  apps/telegram: {}
+  apps/telegram:
+    dependencies:
+      '@healthmate/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
 
-  packages/agent: {}
+  packages/agent:
+    dependencies:
+      '@healthmate/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@healthmate/core':
+        specifier: workspace:*
+        version: link:../core
 
   packages/contracts: {}
 
@@ -86,6 +114,9 @@ importers:
 
   packages/database:
     dependencies:
+      '@healthmate/core':
+        specifier: workspace:*
+        version: link:../core
       drizzle-orm:
         specifier: ^0.45.4
         version: 0.45.4(postgres@3.4.9)
@@ -100,9 +131,23 @@ importers:
         specifier: ^0.31.11
         version: 0.31.11
 
-  packages/evals: {}
+  packages/evals:
+    dependencies:
+      '@healthmate/agent':
+        specifier: workspace:*
+        version: link:../agent
+      '@healthmate/core':
+        specifier: workspace:*
+        version: link:../core
+      '@healthmate/providers':
+        specifier: workspace:*
+        version: link:../providers
 
-  packages/providers: {}
+  packages/providers:
+    dependencies:
+      '@healthmate/agent':
+        specifier: workspace:*
+        version: link:../agent
 
 packages:
 

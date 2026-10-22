@@ -5,6 +5,4 @@ export * from './entries/entries.table';
 export * from './entries/entry-history.table';
 export * from './conversations/conversations.table';
 export * from './conversations/messages.table';
-export * from './tool-calls/tool-calls.table';
 export * from './citations/citations.table';
-export * from './views/timeline-entries.view';

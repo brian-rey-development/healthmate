@@ -1,5 +1,5 @@
 import { integer, pgTable, primaryKey, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core';
-import { toolCalls } from '../tool-calls/tool-calls.table';
+import { messages } from '../conversations/messages.table';
 import { entries } from './entries.table';
 import { entryDataColumns } from './entry-data.columns';
 
@@ -11,16 +11,17 @@ export const entryHistory = pgTable(
       .notNull()
       .references(() => entries.id),
     version: integer().notNull(),
-    toolCallId: text()
-      .notNull()
-      .references(() => toolCalls.id),
     userId: uuid().notNull(),
     ...entryDataColumns(),
+    sourceMessageId: uuid()
+      .notNull()
+      .references(() => messages.id),
+    sourceToolUseId: text(),
     recordedAt: timestamp({ withTimezone: true }).notNull(),
   },
   (t) => [
     primaryKey({ columns: [t.entryId, t.version] }),
-    unique('entry_history_tool_call_id_unique').on(t.toolCallId),
+    unique('entry_history_source_unique').on(t.sourceMessageId, t.sourceToolUseId).nullsNotDistinct(),
   ],
 ).enableRLS();
 

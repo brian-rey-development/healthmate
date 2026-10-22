@@ -1,6 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import { assertLocalTarget, createDb, loadLocalEnv, requireEnv, type Database } from '../src/index';
-import { users } from '../src/schema';
+import { assertLocalTarget, createDb, createRepositories, loadLocalEnv, requireEnv, type Database } from '../src/index';
 import { DEMO_CREATED_AT, DEMO_PASSWORD, DEMO_USERS, type DemoUser } from './demo-users';
 
 const ensureAuthUser = async (admin: SupabaseClient, user: DemoUser): Promise<boolean> => {
@@ -16,11 +15,9 @@ const ensureAuthUser = async (admin: SupabaseClient, user: DemoUser): Promise<bo
   return true;
 };
 
+// Insert keeps an existing profile, so the seed can run again.
 const ensureProfile = async (db: Database, user: DemoUser): Promise<void> => {
-  await db
-    .insert(users)
-    .values({ id: user.id, displayName: user.displayName, createdAt: DEMO_CREATED_AT })
-    .onConflictDoNothing({ target: users.id });
+  await createRepositories(db).users.insert({ id: user.id, displayName: user.displayName }, DEMO_CREATED_AT);
 };
 
 const connect = () => {

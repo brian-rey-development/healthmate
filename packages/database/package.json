@@ -8,13 +8,14 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "lint": "eslint .",
+    "lint": "eslint --cache --cache-location node_modules/.cache/eslint/ .",
     "test": "vitest run --passWithNoTests",
     "db:generate": "drizzle-kit generate",
     "db:check": "drizzle-kit check",
     "db:seed": "tsx seeds/demo.ts"
   },
   "dependencies": {
+    "@healthmate/core": "workspace:*",
     "drizzle-orm": "^0.45.4",
     "postgres": "^3.4.9"
   },

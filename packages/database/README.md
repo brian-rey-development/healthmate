@@ -10,18 +10,17 @@ The `*.table.ts` files are the source of truth for code. The DBML file is the de
 
 ## Layout
 
-Each module folder holds its tables, its repositories and their tests. A table file ends in `.table.ts`, a repository file ends in `.repository.ts`, and a view file in `src/views` ends in `.view.ts`.
+Each module folder holds its tables, its repositories and their tests. A table file ends in `.table.ts`, a repository file ends in `.repository.ts`.
 
 | Path | Contents |
 |---|---|
 | `src/users` | `users` |
 | `src/subjects` | `subjects` and the trigram search |
 | `src/entries` | `entries`, `entry_history` and the columns that the 2 tables share |
-| `src/conversations` | `conversations` and `messages` |
-| `src/tool-calls` | `tool_calls` |
+| `src/conversations` | `conversations` and `messages`. A proposal is a tool_use block in a message |
 | `src/citations` | `citations` |
-| `src/views` | `timeline_entries` |
-| `src/schema.ts` | Exports every enum, table and view for Drizzle Kit and the client |
+| `src/timeline` | The timeline repository, a join of `entries` and `subjects` |
+| `src/schema.ts` | Exports every enum and table for Drizzle Kit and the client |
 | `src/repositories.ts` | `createRepositories` and `inTransaction`, the unit of work |
 
 The rules for tables, repositories and tests are in [`CLAUDE.md`](CLAUDE.md).

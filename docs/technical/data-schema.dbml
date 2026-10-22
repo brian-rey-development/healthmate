@@ -1,5 +1,5 @@
 // HealthMate data schema, v0.1. This file is the living design of the data model. It changes with each release.
-// The Drizzle files packages/database/src/**/*.table.ts and *.view.ts are the source of truth for code.
+// The Drizzle files packages/database/src/**/*.table.ts are the source of truth for code.
 // Update this file in the same change as the schema.
 
 Project healthmate {
@@ -27,19 +27,6 @@ Enum message_role {
   user
   assistant
   tool
-}
-
-Enum tool_call_status {
-  pending
-  confirmed
-  discarded
-  expired
-  done
-}
-
-Enum tool_call_maker {
-  agent
-  person
 }
 
 Table users {
@@ -71,8 +58,7 @@ Table entries {
   id uuid [pk, note: 'Stays the same through all corrections.']
   user_id uuid [not null, ref: > users.id]
   subject_id uuid [note: 'Null for a note, and only for a note. A CHECK enforces this.']
-  tool_call_id text [not null, unique, ref: > tool_calls.id, note: 'The tool call that made the current version.']
-  version integer [not null, default: 1, note: 'Each correction adds 1. An update must match the version that the agent read. A CHECK keeps it at 1 or more. An update that does not add 1 fails on the entry_history primary key.']
+  version integer [not null, note: 'No default, because core sets it. Each correction adds 1 in SQL, and the update only matches the stored version minus 1. A CHECK keeps it at 1 or more.']
   kind kind [not null]
   value jsonb [not null, note: 'Checked by the zod schema of the kind. Symptom is {"severity": 0-10}. Note is {}.']
   original_words text [not null]
@@ -84,19 +70,20 @@ Table entries {
   time_zone text [not null, note: 'IANA zone, for example Europe/Madrid.']
   created_at timestamptz [not null, note: 'Time of the first confirm.']
   updated_at timestamptz [not null, note: 'Time of the last correction.']
+  source_message_id uuid [not null, ref: > messages.id, note: 'The message that made the current version. For the agent, the assistant message with the proposal. For the web form, the user message of the submit.']
+  source_tool_use_id text [note: 'The id of the propose tool_use block in that message. Null for the web form.']
 
   indexes {
-    (user_id, start_date) [note: 'Timeline.']
-    (user_id, subject_id, start_date) [note: 'All entries of one subject.']
+    (source_message_id, source_tool_use_id) [unique, note: 'NULLS NOT DISTINCT. A second confirm of the same proposal inserts nothing.']
+    (user_id, start_date, id) [name: 'entries_user_start_id_idx', note: 'timeline.listStartingBetween. start_date is DESC in the index. Newest start date first, then id.']
   }
 
-  Note: 'The current data of each confirmed health fact. A trigger copies each insert and update into entry_history. No delete. ADR-003 keeps writers outside core out of the database. The trigger is an exception, because it makes no domain decision and only copies a row. The database does not check that tool_call_id and subject_id belong to user_id. The use case in core checks this.'
+  Note: 'The current data of each confirmed health fact. A trigger copies each insert and update into entry_history. No delete. ADR-003 keeps writers outside core out of the database. The trigger is an exception, because it makes no domain decision and only copies a row. The database does not check that the source message and subject_id belong to user_id. The use case in core checks this.'
 }
 
 Table entry_history {
   entry_id uuid [not null, ref: > entries.id]
   version integer [not null]
-  tool_call_id text [not null, unique, ref: > tool_calls.id, note: 'One tool call makes at most one version.']
   user_id uuid [not null]
   subject_id uuid
   kind kind [not null]
@@ -108,13 +95,16 @@ Table entry_history {
   end_date date
   end_time time
   time_zone text [not null]
+  source_message_id uuid [not null, ref: > messages.id]
+  source_tool_use_id text
   recorded_at timestamptz [not null, note: 'Copy of entries.updated_at, so the time comes from the app clock.']
 
   indexes {
     (entry_id, version) [pk]
+    (source_message_id, source_tool_use_id) [unique, note: 'NULLS NOT DISTINCT. One proposal or one form submit makes at most one version.']
   }
 
-  Note: 'A copy of each version of each entry, the current version included. Insert only. Only the trigger writes here.'
+  Note: 'A copy of each version of each entry, the current version included. Insert only. Only the trigger writes here. The trigger function is SECURITY DEFINER, and anon and authenticated cannot run it. The timeline is a join of entries and subjects in the repository, and the database has no view.'
 }
 
 Table conversations {
@@ -124,7 +114,7 @@ Table conversations {
   created_at timestamptz [not null]
 
   indexes {
-    (user_id, created_at)
+    (user_id, channel, created_at) [note: 'conversations.findLatest.']
   }
 
   Note: 'One session with the agent in one channel.'
@@ -134,36 +124,17 @@ Table messages {
   id uuid [pk]
   conversation_id uuid [not null, ref: > conversations.id]
   role message_role [not null]
-  content jsonb [not null, note: 'List of blocks. A block is text, tool_use or tool_result.']
+  content jsonb [not null, note: 'List of blocks in the shape of the model API. A block is text, thinking, redacted_thinking, tool_use or tool_result.']
   transcript text [note: 'Raw text of a voice message. The audio is deleted after transcription.']
   model text [note: 'For an assistant message.']
   prompt_version text [note: 'For an assistant message.']
   created_at timestamptz [not null]
 
   indexes {
-    (conversation_id, created_at)
+    (conversation_id, created_at, id) [note: 'messages.findLatest and messages.listLatest. Ordered by created_at, then id.']
   }
 
-  Note: 'Each message in a conversation, in the shape of the LLM APIs. Insert only.'
-}
-
-Table tool_calls {
-  id text [pk, note: 'The tool_use id from the model, or a new id from the web form.']
-  user_id uuid [not null, ref: > users.id, note: 'The owner. A web form call has no message, so ownership cannot come from the conversation.']
-  message_id uuid [ref: > messages.id, note: 'The assistant message. Null for the web form. A CHECK makes it set when made_by is agent, and only then.']
-  name text [not null, note: 'For example propose_entry, propose_correction, search_subjects.']
-  input jsonb [not null, note: 'Checked by the zod schema of the tool.']
-  status tool_call_status [not null, note: 'Confirm changes pending to confirmed only once. A read is done at once.']
-  made_by tool_call_maker [not null]
-  decided_at timestamptz [note: 'Null only while pending. A CHECK enforces this.']
-  created_at timestamptz [not null, note: 'The age of a pending proposal comes from this value.']
-
-  indexes {
-    message_id
-    (user_id, created_at) [note: 'WHERE status = pending. Open proposals of one person, and the expiry sweep.']
-  }
-
-  Note: 'Each tool call from the agent or the web form. A proposal is a pending tool call.'
+  Note: 'Each message in a conversation. Insert only. Messages are the audit trail of the agent, with its reasoning, its tool calls and their results. A proposal is a tool_use block, for example propose_entry, in an assistant message. The person confirms or discards it with a tool_result in the next user message. The model API answers every tool_use in the next turn, so only the last message of a conversation can hold an open proposal. Expiry comes from created_at and is never stored. A web form submit is a user message in a web conversation.'
 }
 
 Table citations {
@@ -172,8 +143,7 @@ Table citations {
   version integer [not null]
 
   indexes {
-    (message_id, entry_id, version) [pk]
-    (entry_id, version) [note: 'For the foreign key to entry_history.']
+    (message_id, entry_id, version) [pk, note: 'citations.listForMessage and the conflict target of insertMany.']
   }
 
   Note: 'Link from an answer to each exact entry version that it used. The agent checks in code that each cited entry came from a tool result of the same turn.'
@@ -181,6 +151,3 @@ Table citations {
 
 Ref: entries.(subject_id, kind) > subjects.(id, kind)
 Ref: citations.(entry_id, version) > entry_history.(entry_id, version)
-
-// View timeline_entries (DBML has no view syntax). Each entry with subjects.name as subject_name.
-// security_invoker = true, so the view applies the RLS of its tables. No ORDER BY, because timeline order is ADR-004.
