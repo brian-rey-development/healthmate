@@ -1,0 +1,39 @@
+---
+import { Image } from 'astro:assets';
+import type { ImageMetadata } from 'astro';
+import headache from '../assets/illustrations/headache.png';
+import journal from '../assets/illustrations/journal.png';
+import labReport from '../assets/illustrations/lab-report.png';
+import review from '../assets/illustrations/review.png';
+import laptop from '../assets/illustrations/laptop.png';
+import thermometer from '../assets/illustrations/thermometer.png';
+import { FEATURES, type Illustration } from '../data/site';
+
+const ART: Record<Illustration, { src: ImageMetadata; alt: string }> = {
+  headache: { src: headache, alt: 'A person holds their head because of a headache' },
+  journal: { src: journal, alt: 'A person writes in a notebook' },
+  'lab-report': { src: labReport, alt: 'A person reads a lab report' },
+  review: { src: review, alt: 'A person reads a report with a chart' },
+  laptop: { src: laptop, alt: 'A person types on a laptop' },
+  thermometer: { src: thermometer, alt: 'A person reads a thermometer' },
+};
+---
+
+<section class="container-page pb-16 md:pb-26" aria-labelledby="features-title">
+  <div class="border-t border-ink/10 pt-12 md:pt-18">
+    <h2 id="features-title" class="max-w-[22ch] text-3xl leading-tight font-bold tracking-tight md:text-4xl">
+      One record for everything about your health.
+    </h2>
+    <ul class="mt-10 grid gap-x-10 gap-y-12 sm:grid-cols-2 md:mt-14 lg:grid-cols-3">
+      {
+        FEATURES.map(({ title, body, illustration }) => (
+          <li class="grid content-start justify-items-start gap-2.5">
+            <Image src={ART[illustration].src} alt={ART[illustration].alt} class="mb-2 h-32 w-auto" />
+            <h3 class="font-display text-xl font-semibold tracking-tight">{title}</h3>
+            <p class="text-ink/75">{body}</p>
+          </li>
+        ))
+      }
+    </ul>
+  </div>
+</section>

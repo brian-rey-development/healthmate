@@ -15,6 +15,7 @@ const packageElements = {
   api: 'apps/api/src/**',
   telegram: 'apps/telegram/src/**',
   mobile: 'apps/mobile/src/**',
+  site: 'apps/site/src/**',
 };
 
 const elements = [
@@ -37,6 +38,7 @@ const allowances = [
   { from: 'api', values: ['core-entry', 'core-testing', 'contracts', 'db', 'agent', 'providers'] },
   { from: 'telegram', values: ['contracts'] },
   { from: 'mobile', values: ['contracts'] },
+  { from: 'site', values: [] },
 ];
 
 const selfAllowed = (from) => from !== 'core-ports';
@@ -55,7 +57,7 @@ const toPolicies = ({ from, values = [], types = [] }) => {
 const dependencyPolicies = allowances.flatMap(toPolicies);
 
 export default defineConfig([
-  globalIgnores(['**/node_modules/**', '**/dist/**', '**/.turbo/**']),
+  globalIgnores(['**/node_modules/**', '**/dist/**', '**/.turbo/**', '**/.astro/**']),
   {
     files: ['**/*.ts'],
     extends: [js.configs.recommended, ...tseslint.configs.strict],

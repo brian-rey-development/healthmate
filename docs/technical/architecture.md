@@ -37,6 +37,7 @@ healthmate/
     api/
     telegram/
     mobile/
+    site/
   packages/
     core/
       src/
@@ -83,6 +84,7 @@ Inside any package, a folder gets subfolders only when it passes roughly eight f
 | `evals` | Datasets, runner, scorers and committed run summaries. Nothing depends on it. |
 | `apps/api` | Composition root. The only place that builds concrete implementations and wires them together. Maps between `core` and `contracts`. |
 | `apps/telegram`, `apps/mobile` | Thin channel adapters that talk to `api` through the client in `contracts`. |
+| `apps/site` | Public product page, built with Astro and deployed to GitHub Pages. Imports no workspace package. |
 
 ## `core` layers
 
@@ -120,6 +122,7 @@ There is no `types/` or `interfaces/` folder. Grouping by kind of TypeScript con
 | `evals` | `agent`, `core`, `providers` |
 | `apps/api` | everything except `evals` |
 | `apps/telegram`, `apps/mobile` | `contracts` |
+| `apps/site` | nothing |
 
 Enforced in CI with `eslint-plugin-boundaries`, including the layer rules inside `core`. Package `exports` maps make deep imports from other packages fail to resolve.
 

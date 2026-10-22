@@ -8,3 +8,10 @@ onlyBuiltDependencies:
 
 ignoredBuiltDependencies:
   - esbuild
+
+# @napi-rs/wasm-runtime imports @emnapi/core but declares it only as a peer, which breaks astro-check under pnpm.
+packageExtensions:
+  '@napi-rs/wasm-runtime@1':
+    dependencies:
+      '@emnapi/core': ^1.11.3
+      '@emnapi/runtime': ^1.11.3

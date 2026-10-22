@@ -1,0 +1,37 @@
+@import 'tailwindcss';
+@import '@fontsource-variable/bricolage-grotesque';
+@import '@fontsource-variable/atkinson-hyperlegible-next';
+
+@theme {
+  --color-primary: #137c72;
+  --color-mint: #a7e5d5;
+  --color-background: #f5f8f7;
+  --color-ink: #243b39;
+  --color-surface: #ffffff;
+
+  --font-display: 'Bricolage Grotesque Variable', 'Avenir Next', 'Segoe UI', sans-serif;
+  --font-sans: 'Atkinson Hyperlegible Next Variable', 'Segoe UI', Roboto, Arial, sans-serif;
+}
+
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+
+  body {
+    @apply bg-background text-ink font-sans antialiased;
+  }
+
+  h1,
+  h2 {
+    @apply font-display text-balance;
+  }
+
+  :focus-visible {
+    @apply outline-3 outline-offset-3 outline-primary rounded-md;
+  }
+}
+
+@utility container-page {
+  @apply mx-auto w-full max-w-5xl pr-[max(1.25rem,env(safe-area-inset-right))] pl-[max(1.25rem,env(safe-area-inset-left))];
+}

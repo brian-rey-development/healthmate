@@ -2,9 +2,14 @@
   "$schema": "https://turbo.build/schema.json",
   "globalDependencies": ["tsconfig.base.json"],
   "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "inputs": ["src/**", "public/**", "astro.config.mjs", "package.json"],
+      "outputs": ["dist/**"]
+    },
     "typecheck": {
       "dependsOn": ["^typecheck"],
-      "inputs": ["src/**", "seeds/**", "*.ts", "tsconfig.json", "package.json"],
+      "inputs": ["src/**", "seeds/**", "*.ts", "*.mjs", "tsconfig.json", "package.json"],
       "outputs": []
     },
     "lint": {

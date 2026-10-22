@@ -1,0 +1,16 @@
+---
+import Logo from './Logo.astro';
+import { SITE } from '../data/site';
+---
+
+<header class="container-page flex min-h-19 items-center justify-between">
+  <a
+    class="inline-flex items-center gap-2.5 font-display text-lg font-bold no-underline"
+    href={import.meta.env.BASE_URL}
+    aria-label={`${SITE.name} home`}
+  >
+    <Logo />
+    {SITE.name}
+  </a>
+  <a class="text-sm font-semibold text-ink/70 no-underline hover:text-ink" href={SITE.repoUrl}>GitHub</a>
+</header>

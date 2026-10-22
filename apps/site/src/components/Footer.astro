@@ -1,0 +1,12 @@
+---
+import { SITE } from '../data/site';
+
+const year = new Date().getFullYear();
+---
+
+<footer class="container-page">
+  <div class="flex flex-wrap justify-between gap-x-6 gap-y-2 border-t border-ink/10 py-7 text-sm text-ink/70">
+    <p>{SITE.disclaimer}</p>
+    <p>© {year} {SITE.author}</p>
+  </div>
+</footer>
