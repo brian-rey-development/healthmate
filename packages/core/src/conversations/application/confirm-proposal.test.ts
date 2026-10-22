@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { correctEntry } from '../../entries/application/correct-entry';
 import type { Severity } from '../../entries/domain/severity';
 import { inMemoryEntriesRepository } from '../../entries/testing/in-memory-entries-repository';
 import { fixedClock } from '../../shared/testing/fixed-clock';
@@ -27,7 +28,8 @@ const input: ConfirmProposalInput = {
 
 const setup = (now: Date, history: readonly Message[] = [proposalMessage()]) => {
   const deps = { messages: inMemoryMessagesRepository(history), entries: inMemoryEntriesRepository() };
-  return { ...deps, confirm: () => confirmProposal({ ...deps, clock: fixedClock(now) }, input) };
+  const clock = fixedClock(now);
+  return { ...deps, clock, confirm: () => confirmProposal({ ...deps, clock }, input) };
 };
 
 describe('confirmProposal', () => {
@@ -46,6 +48,17 @@ describe('confirmProposal', () => {
     await confirm();
 
     expect(await confirm()).toEqual({ ok: false, error: 'already_recorded' });
+  });
+
+  it('records a proposal only once, even after the entry was corrected', async () => {
+    const { confirm, entries, clock } = setup(A_MINUTE_LATER);
+    await confirm();
+    const source = { messageId: 'message-9', toolUseId: 'toolu_9' };
+    const correction = { userId: 'user-1', entryId: 'entry-1', expectedVersion: 1, source, changes: {} };
+    await correctEntry({ entries, clock }, correction);
+
+    expect(await confirm()).toEqual({ ok: false, error: 'already_recorded' });
+    expect(await entries.findById('user-1', 'entry-1')).toMatchObject({ version: 2 });
   });
 
   it('rejects a proposal that a later message has answered', async () => {

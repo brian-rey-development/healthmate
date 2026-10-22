@@ -1,9 +1,10 @@
-import type { EntriesRepository } from '@healthmate/core';
-import { and, eq } from 'drizzle-orm';
+import type { EntriesRepository, EntrySource } from '@healthmate/core';
+import { and, eq, sql } from 'drizzle-orm';
 import type { Executor } from '../executor';
 import { first, wroteRow } from '../rows';
 import { entries } from './entries.table';
 import { toEntry, toStoredEntry } from './entry.mapper';
+import { entryHistory } from './entry-history.table';
 
 const owned = (userId: string, id: string) => and(eq(entries.userId, userId), eq(entries.id, id));
 
@@ -14,10 +15,21 @@ const findById =
     return row && toEntry(row);
   };
 
-// False means the source message or tool_use already made an entry, so a second confirm writes nothing.
+// entry_history keeps the source of every version, so a proposal stays used after a correction replaces it here.
+const sourceUsed = async (db: Executor, { messageId, toolUseId }: EntrySource): Promise<boolean> => {
+  const sameSource = and(
+    eq(entryHistory.sourceMessageId, messageId),
+    sql`${entryHistory.sourceToolUseId} is not distinct from ${toolUseId}`,
+  );
+  const rows = await db.select({ entryId: entryHistory.entryId }).from(entryHistory).where(sameSource).limit(1);
+  return rows.length > 0;
+};
+
+// False means the source already made a version of an entry. The conflict clause covers 2 confirms at the same time.
 const insert =
   (db: Executor): EntriesRepository['insert'] =>
   async (entry, createdAt) => {
+    if (await sourceUsed(db, entry.source)) return false;
     const row = { ...toStoredEntry(entry), createdAt, updatedAt: createdAt };
     return wroteRow(await db.insert(entries).values(row).onConflictDoNothing().returning({ id: entries.id }));
   };

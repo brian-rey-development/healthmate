@@ -91,13 +91,18 @@ const message = (conversationId: string, role: MessageRole, content: Message['co
 });
 
 // A proposal is a tool_use block in an assistant message. The entry points to that message and that tool_use id.
-export const seedProposal = async (ctx: TestContext, userId: string): Promise<EntrySource> => {
+export const seedOpenProposal = async (ctx: TestContext, userId: string) => {
   const conversation = await seedConversationRow(ctx, userId);
   const toolUseId = `toolu_${randomUUID()}`;
   const toolUse = { type: 'tool_use', id: toolUseId, name: 'propose_entry', input: {} } as const;
   const proposal = message(conversation.id, 'assistant', [toolUse], CREATED_AT);
   await ctx.repos.messages.insert(proposal);
-  return { messageId: proposal.id, toolUseId };
+  return { conversationId: conversation.id, messageId: proposal.id, toolUseId };
+};
+
+export const seedProposal = async (ctx: TestContext, userId: string): Promise<EntrySource> => {
+  const { messageId, toolUseId } = await seedOpenProposal(ctx, userId);
+  return { messageId, toolUseId };
 };
 
 export const noteEntry = (userId: string, source: EntrySource, overrides: Partial<NoteEntry> = {}): NoteEntry => ({

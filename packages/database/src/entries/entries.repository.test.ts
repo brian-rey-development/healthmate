@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import type { EntrySource, Severity, SymptomEntry } from '@healthmate/core';
+import { confirmProposal, correctEntry, type EntrySource, type Severity, type SymptomEntry } from '@healthmate/core';
 import { getTableColumns } from 'drizzle-orm';
 import { afterAll, describe, expect, it } from 'vitest';
 import {
@@ -12,6 +12,7 @@ import {
   PG_ERROR,
   seedEntry,
   seedNote,
+  seedOpenProposal,
   seedProposal,
   seedSubject,
   seedUser,
@@ -83,6 +84,15 @@ describe('entries repository', () => {
       expect(await ctx.repos.entries.insert(noteEntry(userId, source), CREATED_AT)).toBe(false);
     }));
 
+  it('writes nothing when a proposal is confirmed again after its entry was corrected', () =>
+    inRollback(db, async (ctx) => {
+      const userId = await seedUser(ctx);
+      const entry = await seedHeadache(ctx, userId);
+      expect(await correct(ctx, nextVersion(entry, await seedProposal(ctx, userId)))).toBe(true);
+
+      expect(await ctx.repos.entries.insert({ ...entry, id: randomUUID() }, LATER)).toBe(false);
+    }));
+
   it('saves a correction as the next version and keeps the old version', () =>
     inRollback(db, async (ctx) => {
       const userId = await seedUser(ctx);
@@ -135,6 +145,34 @@ describe('entries repository', () => {
       await ctx.tx.insert(entries).values(row);
 
       await expect(ctx.repos.entries.findById(userId, entry.id)).rejects.toThrow('no valid severity');
+    }));
+});
+
+// The one place where the core use cases run on the real repositories.
+describe('entries with the core use cases', () => {
+  it('records a confirmed proposal once, also after a correction', () =>
+    inRollback(db, async (ctx) => {
+      const userId = await seedUser(ctx);
+      const { conversationId, toolUseId } = await seedOpenProposal(ctx, userId);
+      const deps = { ...ctx.repos, clock: { now: () => LATER } };
+      const draft = { kind: 'note', originalWords: 'slept badly', start: { date: '2026-01-01', precision: 'day' } } as const;
+      const confirm = () =>
+        confirmProposal(deps, {
+          conversationId,
+          toolUseId,
+          id: randomUUID(),
+          userId,
+          timeZone: 'Europe/Madrid',
+          draft,
+        });
+
+      const confirmed = await confirm();
+      if (!confirmed.ok) throw new Error(confirmed.error);
+      const source = await seedProposal(ctx, userId);
+      const correction = { userId, entryId: confirmed.value.id, expectedVersion: 1, source, changes: {} };
+
+      expect(await correctEntry(deps, correction)).toMatchObject({ ok: true, value: { version: 2 } });
+      expect(await confirm()).toEqual({ ok: false, error: 'already_recorded' });
     }));
 });
 

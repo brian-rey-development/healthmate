@@ -99,7 +99,7 @@ Inside any package, a folder gets subfolders only when it passes roughly eight f
 
 | Module | Owns |
 |---|---|
-| `shared` | `Result`, `Clock`, `IdGenerator`, `UnitOfWork` and other parts that all modules use |
+| `shared` | `Result`, `Clock`, `IdGenerator` and other parts that all modules use |
 | `users` | The profile of a person. Its id is the id of the auth identity |
 | `subjects` | The standard names that a person tracks |
 | `entries` | Entries, their kinds, time with precision, corrections, versions and the timeline. The timeline is a query on entries with no rules of its own, so it is a use case here and not a module |
@@ -116,7 +116,7 @@ The layer rules below apply inside each module and between modules.
 | `testing` | In-memory implementations of the ports that use cases use | `domain`, `ports` | Being imported by `domain` or `application` |
 
 - `domain` answers "what is valid". It returns decisions and touches nothing.
-- `ports` answers "what does the domain need from the outside world". Repositories, clock, id generation and transactions are interfaces here.
+- `ports` answers "what does the domain need from the outside world". Repositories, clock and id generation are interfaces here.
 - `application` answers "what can someone do". A use case loads through ports, asks `domain` for a decision, and writes through ports.
 - `core` has two entry points. `src/index.ts` is `@healthmate/core` and exports use cases, domain types and port interfaces. `src/testing.ts` is `@healthmate/core/testing` and exports the in-memory ports.
 
@@ -152,7 +152,7 @@ Three kinds of shapes exist. They change for different reasons, so they live in 
 
 | Shape | Purpose | Location | Naming |
 |---|---|---|---|
-| Domain type | What something is and its rules | `core/src/<module>/domain` | `Symptom`, `Proposal` |
+| Domain type | What something is and its rules | `core/src/<module>/domain` | `SymptomEntry`, `Message` |
 | Wire schema | What crosses a boundary | `contracts`, or the agent tool that receives it | `proposalViewSchema`, `ProposalView` |
 | Stored shape | How it's persisted | `database` | `SymptomRow`, `symptomPayloadV1` |
 
@@ -167,22 +167,22 @@ Three kinds of shapes exist. They change for different reasons, so they live in 
 A use case is an async function that takes its dependencies first and its input second, and returns a `Result`. The decision belongs to a pure function in `domain`; the use case only loads, asks and writes.
 
 ```ts
-export type ConfirmProposalDeps = { uow: UnitOfWork; clock: Clock }
+export type ConfirmProposalDeps = {
+  readonly messages: MessagesRepository;
+  readonly entries: EntriesRepository;
+  readonly clock: Clock;
+};
 
-export type ConfirmProposalError =
-  | "not_found"
-  | "already_confirmed"
-  | "expired"
-  | "stale"
+export type ConfirmProposalError = ProposalError | RecordEntryError;
 
-export async function confirmProposal(
+export const confirmProposal = async (
   deps: ConfirmProposalDeps,
-  input: { proposalId: string; actorId: string },
-): Promise<Result<{ recordId: string }, ConfirmProposalError>>
+  input: ConfirmProposalInput,
+): Promise<Result<Entry, ConfirmProposalError>> => { ... };
 ```
 
 - Expected failures are values in the error union. Throwing is reserved for bugs and infrastructure failures.
-- Anything that writes more than one thing runs inside a single unit of work.
+- `core` has no unit of work port, because no use case writes more than 1 row yet. The api sets the transaction with `inTransaction` from `database` when a use case needs one.
 - Time comes from `Clock`, ids from `IdGenerator`. Never call `Date.now()` or generate ids inline in `core`.
 - Error names are snake_case string literals so they serialize cleanly to the agent and the API.
 
