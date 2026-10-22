@@ -6,7 +6,6 @@ import { createEntriesRepository } from './entries/entries.repository';
 import { createEntryHistoryRepository } from './entries/entry-history.repository';
 import type { Executor } from './executor';
 import { createSubjectsRepository } from './subjects/subjects.repository';
-import { createToolCallsRepository } from './tool-calls/tool-calls.repository';
 import { createUsersRepository } from './users/users.repository';
 import { createTimelineEntriesRepository } from './views/timeline-entries.repository';
 
@@ -17,7 +16,6 @@ export const createRepositories = (db: Executor) => ({
   entryHistory: createEntryHistoryRepository(db),
   conversations: createConversationsRepository(db),
   messages: createMessagesRepository(db),
-  toolCalls: createToolCallsRepository(db),
   citations: createCitationsRepository(db),
   timelineEntries: createTimelineEntriesRepository(db),
 });

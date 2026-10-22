@@ -14,7 +14,7 @@ Read `docs/technical/data-schema.dbml` before a change to a table. The rules bel
 - Use camelCase for TypeScript names. The client and Drizzle Kit set `casing: 'snake_case'`, so a column needs no name string.
 - Give every constraint and index an explicit name in snake_case, in the form `<table>_<columns or rule>_<idx|unique|fk>`. A check name says the rule, for example `entries_end_after_start`.
 - Call `.enableRLS()` on every table. ADR-003 explains the policy.
-- An id is a `uuid` from `IdGenerator` in `core`, with no database default. Only `tool_calls.id` is `text`, because it holds the tool_use id of the model API.
+- An id is a `uuid` from `IdGenerator` in `core`, with no database default. A tool_use id from the model API is `text`, because the model makes it.
 - A time is `timestamp({ withTimezone: true })`, with no database default, because the time comes from `Clock` in `core`.
 - A date is `date({ mode: 'string' })`, because a JS `Date` moves a date-only value across time zones.
 - A `jsonb` column gets a type with `$type<...>()`. The zod schema at the boundary checks the value.
@@ -29,8 +29,9 @@ Read `docs/technical/data-schema.dbml` before a change to a table. The rules bel
 - Use these verbs. `findById` and `find<Thing>` return one row or `undefined`. `list<Thing>` returns an array. `insert` writes one row and returns it. `insertMany` writes many rows and returns nothing. A state change has its own verb, for example `correct` or `decide`.
 - The first argument of an operation on user data is `userId`, and every read filters on it. If an operation has more than 2 arguments, it takes 1 object instead. `users.findById` takes the user id itself.
 - Use `first(rows)` for zero or one row and `single(rows)` for exactly one row. Both are in `rows.ts`.
-- A conditional write returns `undefined` when no row matched, for example a stale `version` or a tool call that is not pending. A conditional write never throws for an expected case.
+- A conditional write returns `undefined` when no row matched, for example a stale `version` or a proposal that already made an entry. A conditional write never throws for an expected case.
 - A filter on a partial index uses a literal SQL value, not a bind parameter. A generic prepared plan cannot use the partial index with a parameter.
+- A proposal is a message, so no table stores proposals or tool calls. An entry points to its source message and tool_use id.
 - No repository deletes a row. `entry_history` has no write operation, because only the trigger writes it.
 - Every return type is explicit. A repository returns Drizzle rows until `core/ports` exists. Then it maps rows to domain types.
 

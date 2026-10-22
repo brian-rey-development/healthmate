@@ -3,6 +3,7 @@ import { sql, TransactionRollbackError } from 'drizzle-orm';
 import { expect } from 'vitest';
 import { createDb, type Database } from './client';
 import type { NewMessageRow } from './conversations/messages.table';
+import type { EntrySource } from './entries/entries.repository';
 import type { EntryRow, NewEntryRow } from './entries/entries.table';
 import type { MessageRole } from './enums';
 import { loadLocalEnv, requireEnv } from './env';
@@ -10,7 +11,6 @@ import type { Executor } from './executor';
 import { assertLocalTarget } from './guard';
 import { createRepositories, type Repositories } from './repositories';
 import type { NewSubjectRow, SubjectRow } from './subjects/subjects.table';
-import type { NewToolCallRow, ToolCallRow } from './tool-calls/tool-calls.table';
 
 export const PG_ERROR = {
   uniqueViolation: '23505',
@@ -65,27 +65,29 @@ export const seedUser = async ({ repos, tx }: TestContext): Promise<string> => {
 export const seedSubject = ({ repos }: TestContext, row: Pick<NewSubjectRow, 'userId' | 'name'>): Promise<SubjectRow> =>
   repos.subjects.insert({ id: randomUUID(), kind: 'symptom', createdAt: CREATED_AT, ...row });
 
-export const seedToolCall = (
-  { repos }: TestContext,
-  userId: string,
-  overrides: Partial<NewToolCallRow> = {},
-): Promise<ToolCallRow> =>
-  repos.toolCalls.insert({
+// A proposal is a tool_use block in an assistant message. The entry points to that message and that tool_use id.
+export const seedProposal = async ({ repos }: TestContext, userId: string): Promise<EntrySource> => {
+  const conversation = await repos.conversations.insert({
     id: randomUUID(),
     userId,
-    name: 'propose_entry',
-    input: {},
-    status: 'confirmed',
-    madeBy: 'person',
-    decidedAt: CREATED_AT,
+    channel: 'telegram',
     createdAt: CREATED_AT,
-    ...overrides,
   });
+  const toolUseId = `toolu_${randomUUID()}`;
+  const message = await repos.messages.insert({
+    id: randomUUID(),
+    conversationId: conversation.id,
+    role: 'assistant',
+    content: [{ type: 'tool_use', id: toolUseId, name: 'propose_entry', input: {} }],
+    createdAt: CREATED_AT,
+  });
+  return { sourceMessageId: message.id, sourceToolUseId: toolUseId };
+};
 
-export const noteEntry = (userId: string, toolCallId: string, overrides: Partial<NewEntryRow> = {}): NewEntryRow => ({
+export const noteEntry = (userId: string, source: EntrySource, overrides: Partial<NewEntryRow> = {}): NewEntryRow => ({
   id: randomUUID(),
   userId,
-  toolCallId,
+  ...source,
   kind: 'note',
   value: {},
   originalWords: 'slept badly',
@@ -102,8 +104,10 @@ export const seedEntry = async (
   userId: string,
   overrides: Partial<NewEntryRow> = {},
 ): Promise<EntryRow> => {
-  const toolCall = await seedToolCall(ctx, userId);
-  return ctx.repos.entries.insert(noteEntry(userId, toolCall.id, overrides));
+  const source = await seedProposal(ctx, userId);
+  const entry = await ctx.repos.entries.insert(noteEntry(userId, source, overrides));
+  if (!entry) throw new Error('The seed entry was not inserted');
+  return entry;
 };
 
 const textMessage = (conversationId: string, role: MessageRole, text: string, createdAt: Date): NewMessageRow => ({
