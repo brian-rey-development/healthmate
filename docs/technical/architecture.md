@@ -41,10 +41,18 @@ healthmate/
   packages/
     core/
       src/
-        domain/
-        ports/
-        application/
-        testing/
+        shared/
+        entries/
+          domain/
+          ports/
+          application/
+          testing/
+        subjects/
+        tool-calls/
+        conversations/
+        timeline/
+        index.ts
+        testing.ts
     contracts/
     database/
       seeds/
@@ -86,7 +94,21 @@ Inside any package, a folder gets subfolders only when it passes roughly eight f
 | `apps/telegram`, `apps/mobile` | Thin channel adapters that talk to `api` through the client in `contracts`. |
 | `apps/site` | Public product page, built with Astro and deployed to GitHub Pages. Imports no workspace package. |
 
-## `core` layers
+## `core` modules and layers
+
+`core` is split into modules. Each module is a folder in `packages/core/src` that holds the 4 layers as subfolders, `domain`, `ports`, `application` and `testing`. A module has only the layers that it needs. The modules follow the data model.
+
+| Module | Owns |
+|---|---|
+| `shared` | `Result`, `Clock`, `IdGenerator`, `UnitOfWork` and other parts that all modules use |
+| `entries` | Entries, their kinds, time with precision, corrections and versions |
+| `subjects` | The standard names that a person tracks |
+| `tool-calls` | Proposals and the other tool calls, with their states and expiry |
+| `conversations` | Conversations, messages and citations |
+| `timeline` | The read model of the timeline |
+
+The layer rules below apply inside each module and between modules.
+
 
 | Layer | Contains | May import | Never |
 |---|---|---|---|
@@ -98,14 +120,14 @@ Inside any package, a folder gets subfolders only when it passes roughly eight f
 - `domain` answers "what is valid". It returns decisions and touches nothing.
 - `ports` answers "what does the domain need from the outside world". Repositories, clock, id generation and transactions are interfaces here.
 - `application` answers "what can someone do". A use case loads through ports, asks `domain` for a decision, and writes through ports.
-- `core` has two entry points. `@healthmate/core` exports use cases, domain types and port interfaces, and `@healthmate/core/testing` exports the in-memory ports.
+- `core` has two entry points. `src/index.ts` is `@healthmate/core` and exports use cases, domain types and port interfaces. `src/testing.ts` is `@healthmate/core/testing` and exports the in-memory ports.
 
-Modules (entries, records, proposals, timeline, audit) repeat inside each layer. A module that owns versioning knows nothing about entry kinds. Proposals can depend on entries and records. Entries and records never depend on proposals.
+A module can import the same layer of another module, under the same layer rules. `tool-calls` can depend on `entries` and `subjects`, and `timeline` can depend on `entries` and `subjects`. `entries` and `subjects` never depend on `tool-calls`, `conversations` or `timeline`. Every module can depend on `shared`, and `shared` depends on no module.
 
 ### Where types live
 
-- Domain types live in `domain`, with the module they belong to.
-- Interfaces live in `ports`, one per file.
+- Domain types live in the `domain` folder of the module they belong to.
+- Interfaces live in the `ports` folder of their module, one per file.
 - A use case's dependencies, input and error union live in the same file as the use case.
 
 There is no `types/` or `interfaces/` folder. Grouping by kind of TypeScript construct separates things that change together.
@@ -132,7 +154,7 @@ Three kinds of shapes exist. They change for different reasons, so they live in 
 
 | Shape | Purpose | Location | Naming |
 |---|---|---|---|
-| Domain type | What something is and its rules | `core/domain` | `Symptom`, `Proposal` |
+| Domain type | What something is and its rules | `core/src/<module>/domain` | `Symptom`, `Proposal` |
 | Wire schema | What crosses a boundary | `contracts`, or the agent tool that receives it | `proposalViewSchema`, `ProposalView` |
 | Stored shape | How it's persisted | `database` | `SymptomRow`, `symptomPayloadV1` |
 
@@ -192,8 +214,8 @@ export async function confirmProposal(
 
 | Layer | How |
 |---|---|
-| `core/domain` | Pure unit tests, no fakes |
-| `core/application` | Unit tests against `core/testing` |
+| `core` `domain` | Pure unit tests, no fakes |
+| `core` `application` | Unit tests against the in-memory ports in `testing` |
 | `database` | Integration tests against the local Supabase Postgres, each in a rolled-back transaction |
 | `agent` | Loop and tools with a scripted model client replaying recorded responses |
 | `apps/api` | Route tests with fakes wired in |
@@ -230,7 +252,7 @@ Every task names the package it touches, the use case or tool involved, and the 
 3. Local Supabase stack through the CLI, with scripts to start it, write `.env.local`, migrate and seed.
 4. Write ADR-001 (stack) and a first draft of the threat model.
 5. Define the first table in the Drizzle schema and commit the generated migration.
-6. In `core`, write the domain with pure tests, then the ports, then the use cases tested against `core/testing`.
+6. In each `core` module, write the domain with pure tests, then the ports, then the use cases tested against the in-memory ports.
 7. In `database`, write the repositories, the unit of work and the integration tests.
 8. In `agent`, write the loop, the budgets and the tools against a scripted model client.
 9. Write the first 25 eval cases before connecting a real model.

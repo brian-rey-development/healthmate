@@ -4,6 +4,23 @@ import tseslint from 'typescript-eslint';
 import boundaries from 'eslint-plugin-boundaries';
 
 const CORE_LAYERS = ['domain', 'ports', 'application', 'testing'];
+const coreLayer = (layer) => `packages/core/src/*/${layer}/**`;
+
+// Which core modules each module must never import. Modules not listed may import any other module.
+const CORE_MODULE_BANS = {
+  shared: ['entries', 'subjects', 'tool-calls', 'conversations', 'timeline'],
+  entries: ['tool-calls', 'conversations', 'timeline'],
+  subjects: ['entries', 'tool-calls', 'conversations', 'timeline'],
+};
+const NO_RUNTIME_DEPENDENCY = { regex: '^[^./]', message: 'core has zero runtime dependencies' };
+const coreImportRules = (bans = []) => ({
+  'no-restricted-imports': ['error', {
+    patterns: [
+      NO_RUNTIME_DEPENDENCY,
+      ...bans.map((module) => ({ group: [`**/${module}/**`], message: `this module never depends on ${module}` })),
+    ],
+  }],
+});
 const MAX_FUNCTION_LINES = 20;
 
 const packageElements = {
@@ -19,8 +36,9 @@ const packageElements = {
 };
 
 const elements = [
-  ...CORE_LAYERS.map((layer) => ({ type: `core-${layer}`, pattern: `packages/core/src/${layer}/**` })),
-  { type: 'core-entry', pattern: 'packages/core/src' },
+  ...CORE_LAYERS.map((layer) => ({ type: `core-${layer}`, pattern: coreLayer(layer) })),
+  { type: 'core-testing-entry', pattern: 'packages/core/src/testing.ts', mode: 'file' },
+  { type: 'core-entry', pattern: 'packages/core/src/index.ts', mode: 'file' },
   ...Object.entries(packageElements).map(([type, pattern]) => ({ type, pattern })),
 ];
 
@@ -30,12 +48,13 @@ const allowances = [
   { from: 'core-application', values: ['core-domain', 'core-ports'] },
   { from: 'core-testing', values: ['core-domain', 'core-ports'] },
   { from: 'core-entry', values: ['core-domain', 'core-ports', 'core-application'] },
+  { from: 'core-testing-entry', values: ['core-domain', 'core-ports', 'core-testing'] },
   { from: 'contracts', values: [] },
   { from: 'database', values: ['core-entry'] },
   { from: 'agent', values: ['core-entry', 'contracts'] },
   { from: 'providers', types: ['agent'] },
   { from: 'evals', values: ['agent', 'core-entry', 'providers'] },
-  { from: 'api', values: ['core-entry', 'core-testing', 'contracts', 'database', 'agent', 'providers'] },
+  { from: 'api', values: ['core-entry', 'core-testing-entry', 'contracts', 'database', 'agent', 'providers'] },
   { from: 'telegram', values: ['contracts'] },
   { from: 'mobile', values: ['contracts'] },
   { from: 'site', values: [] },
@@ -81,7 +100,7 @@ export default defineConfig([
   {
     files: ['packages/core/src/**/*.ts'],
     rules: {
-      'no-restricted-imports': ['error', { patterns: [{ regex: '^[^./]', message: 'core has zero runtime dependencies' }] }],
+      ...coreImportRules(),
       'no-restricted-properties': ['error',
         { object: 'Date', property: 'now', message: 'inject Clock from ports' },
         { object: 'Math', property: 'random', message: 'inject IdGenerator from ports' },
@@ -91,7 +110,7 @@ export default defineConfig([
     },
   },
   {
-    files: ['packages/core/src/domain/**/*.ts'],
+    files: [coreLayer('domain')],
     rules: {
       'no-restricted-syntax': ['error',
         { selector: 'AwaitExpression', message: 'domain is synchronous' },
@@ -101,7 +120,7 @@ export default defineConfig([
     },
   },
   {
-    files: ['packages/core/src/ports/**/*.ts'],
+    files: [coreLayer('ports')],
     rules: {
       'no-restricted-syntax': ['error', {
         selector: ':matches(Program, ExportNamedDeclaration, ExportDefaultDeclaration) > :matches(VariableDeclaration, FunctionDeclaration, ClassDeclaration)',
@@ -109,6 +128,10 @@ export default defineConfig([
       }],
     },
   },
+  ...Object.entries(CORE_MODULE_BANS).map(([module, bans]) => ({
+    files: [`packages/core/src/${module}/**/*.ts`],
+    rules: coreImportRules(bans),
+  })),
   {
     files: ['**/*.test.ts'],
     rules: { 'max-lines-per-function': 'off' },
