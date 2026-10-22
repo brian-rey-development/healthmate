@@ -10,13 +10,21 @@ describe('users repository', () => {
     inRollback(db, async (ctx) => {
       const id = await seedUser(ctx);
 
-      expect(await ctx.repos.users.findById(id)).toEqual({ id, displayName: 'Synthetic Sam', createdAt: CREATED_AT });
+      expect(await ctx.repos.users.findById(id)).toEqual({ id, displayName: 'Synthetic Sam' });
+    }));
+
+  it('keeps the first user when the same id is inserted twice', () =>
+    inRollback(db, async (ctx) => {
+      const id = await seedUser(ctx);
+
+      expect(await ctx.repos.users.insert({ id, displayName: 'Other' }, CREATED_AT)).toBe(false);
+      expect(await ctx.repos.users.findById(id)).toMatchObject({ displayName: 'Synthetic Sam' });
     }));
 
   it('rejects a user without a matching auth user', () =>
     inRollback(db, async (ctx) => {
-      await expectViolation(ctx, PG_ERROR.foreignKeyViolation, (repos) =>
-        repos.users.insert({ id: randomUUID(), displayName: 'Orphan', createdAt: CREATED_AT }),
+      await expectViolation(ctx, PG_ERROR.foreignKeyViolation, ({ repos }) =>
+        repos.users.insert({ id: randomUUID(), displayName: 'Orphan' }, CREATED_AT),
       );
     }));
 });

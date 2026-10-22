@@ -10,6 +10,7 @@ import {
   seedUser,
   type TestContext,
 } from '../test-utils';
+import { subjects } from './subjects.table';
 
 const { db, close } = connectTestDb();
 afterAll(close);
@@ -19,21 +20,30 @@ const TAG = randomUUID().slice(0, 8);
 const tagged = (name: string): string => `${name} ${TAG}`;
 
 const searchTagged = async (ctx: TestContext, userId: string, query: string): Promise<string[]> => {
-  const rows = await ctx.repos.subjects.search({ userId, kind: 'symptom', query, limit: 50 });
-  return rows.map((row) => row.name).filter((name) => name.endsWith(TAG));
+  const found = await ctx.repos.subjects.search({ userId, kind: 'symptom', query, limit: 50 });
+  return found.map((subject) => subject.name).filter((name) => name.endsWith(TAG));
 };
 
 describe('subjects repository', () => {
+  it('finds a subject by id as it was inserted', () =>
+    inRollback(db, async (ctx) => {
+      const userId = await seedUser(ctx);
+      const subject = await seedSubject(ctx, { userId, name: tagged('Headache') });
+
+      expect(await ctx.repos.subjects.findById(userId, subject.id)).toEqual(subject);
+    }));
+
   it('finds seed rows and own rows, but not the rows of another user', () =>
     inRollback(db, async (ctx) => {
       const userId = await seedUser(ctx);
       const otherId = await seedUser(ctx);
       await seedSubject(ctx, { userId: null, name: tagged('Headache') });
       await seedSubject(ctx, { userId, name: tagged('Head pressure') });
-      await seedSubject(ctx, { userId: otherId, name: tagged('Head rush') });
+      const hidden = await seedSubject(ctx, { userId: otherId, name: tagged('Head rush') });
 
       const names = await searchTagged(ctx, userId, 'head');
       expect(names.sort()).toEqual([tagged('Head pressure'), tagged('Headache')]);
+      expect(await ctx.repos.subjects.findById(userId, hidden.id)).toBeUndefined();
     }));
 
   it('finds a name from a query with a typo', () =>
@@ -52,35 +62,23 @@ describe('subjects repository', () => {
       expect(await searchTagged(ctx, userId, '%')).toEqual([]);
     }));
 
-  it('rejects the same seed name twice, in any case', () =>
+  it.each([
+    ['a seed name', null],
+    ['a private name', 'owner'],
+  ] as const)('refuses %s that already exists, in any case', (_name, owner) =>
     inRollback(db, async (ctx) => {
-      await seedSubject(ctx, { userId: null, name: tagged('Nausea') });
-
-      await expectViolation(ctx, PG_ERROR.uniqueViolation, (repos) =>
-        seedSubject({ ...ctx, repos }, { userId: null, name: tagged('NAUSEA') }),
-      );
-    }));
-
-  it('rejects the same private name twice for one user, in any case', () =>
-    inRollback(db, async (ctx) => {
-      const userId = await seedUser(ctx);
+      const userId = owner && (await seedUser(ctx));
       await seedSubject(ctx, { userId, name: tagged('Nausea') });
 
-      await expectViolation(ctx, PG_ERROR.uniqueViolation, (repos) =>
-        seedSubject({ ...ctx, repos }, { userId, name: tagged('nausea') }),
-      );
-    }));
+      const duplicate = { id: randomUUID(), userId, kind: 'symptom', name: tagged('NAUSEA') } as const;
+      expect(await ctx.repos.subjects.insert(duplicate, CREATED_AT)).toBe(false);
+    }),
+  );
 
   it('rejects a subject of kind note', () =>
     inRollback(db, async (ctx) => {
-      await expectViolation(ctx, PG_ERROR.checkViolation, (repos) =>
-        repos.subjects.insert({
-          id: randomUUID(),
-          userId: null,
-          kind: 'note',
-          name: tagged('Note'),
-          createdAt: CREATED_AT,
-        }),
-      );
+      const note = { id: randomUUID(), kind: 'note', name: tagged('Note'), createdAt: CREATED_AT } as const;
+
+      await expectViolation(ctx, PG_ERROR.checkViolation, ({ tx }) => tx.insert(subjects).values(note));
     }));
 });

@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import type { EntrySource, Severity, SymptomEntry } from '@healthmate/core';
 import { getTableColumns } from 'drizzle-orm';
 import { afterAll, describe, expect, it } from 'vitest';
 import {
@@ -10,14 +11,16 @@ import {
   noteEntry,
   PG_ERROR,
   seedEntry,
+  seedNote,
   seedProposal,
   seedSubject,
   seedUser,
+  symptomEntry,
   type PgErrorCode,
   type TestContext,
 } from '../test-utils';
-import type { EntrySource } from './entries.repository';
 import { entries, type NewEntryRow } from './entries.table';
+import { toStoredEntry } from './entry.mapper';
 import { entryHistory } from './entry-history.table';
 
 const { db, close } = connectTestDb();
@@ -26,26 +29,21 @@ afterAll(close);
 const ENTRY_ONLY_COLUMNS = ['id', 'createdAt', 'updatedAt'];
 const HISTORY_ONLY_COLUMNS = ['entryId', 'recordedAt'];
 
-const seedHeadache = async (ctx: TestContext, userId: string) => {
+const seedHeadache = async (ctx: TestContext, userId: string): Promise<SymptomEntry> => {
   const subject = await seedSubject(ctx, { userId, name: 'Headache' });
-  return seedEntry(ctx, userId, {
-    subjectId: subject.id,
-    kind: 'symptom',
-    value: { severity: 6 },
-    originalWords: 'bad headache since this morning',
-    startTime: '08:30:00',
-  });
+  const note = noteEntry(userId, await seedProposal(ctx, userId), { originalWords: 'headache since 8:30' });
+  return seedEntry(ctx, symptomEntry(note, subject, { startTime: '08:30:00', endDate: '2026-01-02', endTime: '10:00:00' }));
 };
 
-const correctSeverity = (ctx: TestContext, userId: string, id: string, source: EntrySource) =>
-  ctx.repos.entries.correct({
-    userId,
-    id,
-    expectedVersion: 1,
-    source,
-    updatedAt: LATER,
-    changes: { value: { severity: 4 } },
-  });
+const nextVersion = (entry: SymptomEntry, source: EntrySource): SymptomEntry => ({
+  ...entry,
+  version: entry.version + 1,
+  severity: 4 as Severity,
+  source,
+});
+
+const correct = (ctx: TestContext, entry: SymptomEntry, expectedVersion = 1) =>
+  ctx.repos.entries.correct({ entry, expectedVersion, updatedAt: LATER });
 
 describe('entries repository', () => {
   it('keeps the data columns of entries and entry_history the same, so the trigger copies all of them', () => {
@@ -56,20 +54,24 @@ describe('entries repository', () => {
     );
   });
 
-  it('copies the first version into history with its source and the time of the row', () =>
+  it.each([
+    ['a symptom with every time set', seedHeadache],
+    ['a note', seedNote],
+  ])('reads back %s exactly as it was inserted', (_name, seed) =>
+    inRollback(db, async (ctx) => {
+      const userId = await seedUser(ctx);
+      const entry = await seed(ctx, userId);
+
+      expect(await ctx.repos.entries.findById(userId, entry.id)).toEqual(entry);
+    }),
+  );
+
+  it('copies the first version into history with the time of the row', () =>
     inRollback(db, async (ctx) => {
       const userId = await seedUser(ctx);
       const entry = await seedHeadache(ctx, userId);
 
-      expect(entry).toMatchObject({ version: 1, startDate: '2026-01-01', value: { severity: 6 } });
-      expect(await ctx.repos.entryHistory.listVersions(userId, entry.id)).toEqual([
-        expect.objectContaining({
-          version: 1,
-          sourceMessageId: entry.sourceMessageId,
-          sourceToolUseId: entry.sourceToolUseId,
-          recordedAt: CREATED_AT,
-        }),
-      ]);
+      expect(await ctx.repos.entryHistory.listVersions(userId, entry.id)).toEqual([{ ...entry, recordedAt: CREATED_AT }]);
     }));
 
   it('writes nothing when the same proposal is confirmed twice', () =>
@@ -77,21 +79,20 @@ describe('entries repository', () => {
       const userId = await seedUser(ctx);
       const source = await seedProposal(ctx, userId);
 
-      expect(await ctx.repos.entries.insert(noteEntry(userId, source))).toBeDefined();
-      expect(await ctx.repos.entries.insert(noteEntry(userId, source))).toBeUndefined();
+      expect(await ctx.repos.entries.insert(noteEntry(userId, source), CREATED_AT)).toBe(true);
+      expect(await ctx.repos.entries.insert(noteEntry(userId, source), CREATED_AT)).toBe(false);
     }));
 
-  it('adds a version for each correction and keeps the old version', () =>
+  it('saves a correction as the next version and keeps the old version', () =>
     inRollback(db, async (ctx) => {
       const userId = await seedUser(ctx);
       const entry = await seedHeadache(ctx, userId);
-      const correction = await seedProposal(ctx, userId);
+      const corrected = nextVersion(entry, await seedProposal(ctx, userId));
 
-      const corrected = await correctSeverity(ctx, userId, entry.id, correction);
-
-      expect(corrected).toMatchObject({ version: 2, value: { severity: 4 }, createdAt: CREATED_AT, updatedAt: LATER });
-      const old = await ctx.repos.entryHistory.findVersion({ userId, entryId: entry.id, version: 1 });
-      expect(old?.value).toEqual({ severity: 6 });
+      expect(await correct(ctx, corrected)).toBe(true);
+      expect(await ctx.repos.entries.findById(userId, entry.id)).toEqual(corrected);
+      const versions = await ctx.repos.entryHistory.listVersions(userId, entry.id);
+      expect(versions).toEqual([{ ...entry, recordedAt: CREATED_AT }, { ...corrected, recordedAt: LATER }]);
       expect(await ctx.repos.entryHistory.findVersion({ userId, entryId: entry.id, version: 3 })).toBeUndefined();
     }));
 
@@ -99,23 +100,18 @@ describe('entries repository', () => {
     inRollback(db, async (ctx) => {
       const userId = await seedUser(ctx);
       const entry = await seedHeadache(ctx, userId);
-      const first = await seedProposal(ctx, userId);
-      const second = await seedProposal(ctx, userId);
 
-      expect(await correctSeverity(ctx, userId, entry.id, first)).toBeDefined();
-      expect(await correctSeverity(ctx, userId, entry.id, second)).toBeUndefined();
+      expect(await correct(ctx, nextVersion(entry, await seedProposal(ctx, userId)))).toBe(true);
+      expect(await correct(ctx, nextVersion(entry, await seedProposal(ctx, userId)))).toBe(false);
       expect(await ctx.repos.entryHistory.listVersions(userId, entry.id)).toHaveLength(2);
     }));
 
-  it('refuses a second version from the same proposal', () =>
+  it('rejects a second version from the same proposal', () =>
     inRollback(db, async (ctx) => {
       const userId = await seedUser(ctx);
       const entry = await seedHeadache(ctx, userId);
-      const source = { sourceMessageId: entry.sourceMessageId, sourceToolUseId: entry.sourceToolUseId };
 
-      await expectViolation(ctx, PG_ERROR.uniqueViolation, (repos) =>
-        correctSeverity({ ...ctx, repos }, userId, entry.id, source),
-      );
+      await expectViolation(ctx, PG_ERROR.uniqueViolation, (scope) => correct(scope, nextVersion(entry, entry.source)));
     }));
 
   it('does not let another user read or correct the entry', () =>
@@ -123,11 +119,22 @@ describe('entries repository', () => {
       const userId = await seedUser(ctx);
       const otherId = await seedUser(ctx);
       const entry = await seedHeadache(ctx, userId);
-      const source = await seedProposal(ctx, otherId);
+      const stolen = { ...nextVersion(entry, await seedProposal(ctx, otherId)), userId: otherId };
 
       expect(await ctx.repos.entries.findById(otherId, entry.id)).toBeUndefined();
-      expect(await correctSeverity(ctx, otherId, entry.id, source)).toBeUndefined();
-      expect(await ctx.repos.entries.findById(userId, entry.id)).toMatchObject({ version: 1, value: { severity: 6 } });
+      expect(await correct(ctx, stolen)).toBe(false);
+      expect(await ctx.repos.entries.findById(userId, entry.id)).toEqual(entry);
+    }));
+
+  it('throws on a stored symptom without a severity', () =>
+    inRollback(db, async (ctx) => {
+      const userId = await seedUser(ctx);
+      const subject = await seedSubject(ctx, { userId, name: 'Headache' });
+      const entry = symptomEntry(noteEntry(userId, await seedProposal(ctx, userId)), subject);
+      const row = { ...toStoredEntry(entry), value: {}, createdAt: CREATED_AT, updatedAt: CREATED_AT };
+      await ctx.tx.insert(entries).values(row);
+
+      await expect(ctx.repos.entries.findById(userId, entry.id)).rejects.toThrow('no valid severity');
     }));
 });
 
@@ -141,13 +148,15 @@ const INVALID_ROWS: readonly [string, Partial<NewEntryRow>, PgErrorCode][] = [
   ['an unknown source message', { sourceMessageId: randomUUID() }, PG_ERROR.foreignKeyViolation],
 ];
 
+// The domain cannot build these rows, so they go to the table directly.
 describe('entries rules', () => {
   it.each(INVALID_ROWS)('rejects %s', (_name, overrides, code) =>
     inRollback(db, async (ctx) => {
       const userId = await seedUser(ctx);
-      const source = await seedProposal(ctx, userId);
+      const stored = toStoredEntry(noteEntry(userId, await seedProposal(ctx, userId)));
+      const row = { ...stored, createdAt: CREATED_AT, updatedAt: CREATED_AT, ...overrides };
 
-      await expectViolation(ctx, code, (repos) => repos.entries.insert(noteEntry(userId, source, overrides)));
+      await expectViolation(ctx, code, ({ tx }) => tx.insert(entries).values(row));
     }),
   );
 });

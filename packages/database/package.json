@@ -15,6 +15,7 @@
     "db:seed": "tsx seeds/demo.ts"
   },
   "dependencies": {
+    "@healthmate/core": "workspace:*",
     "drizzle-orm": "^0.45.4",
     "postgres": "^3.4.9"
   },

@@ -2,18 +2,3 @@ export { createDb, type Database } from './client';
 export { loadLocalEnv, requireEnv } from './env';
 export { assertLocalTarget } from './guard';
 export { createRepositories, inTransaction, type Repositories } from './repositories';
-
-export type { Channel, DatePrecision, Kind, MessageRole, SubjectKind } from './enums';
-export type { CitationRow, NewCitationRow } from './citations/citations.table';
-export type { ConversationRow, NewConversationRow } from './conversations/conversations.table';
-export type { ContentBlock, MessageRow, NewMessageRow } from './conversations/messages.table';
-export type { EntryChanges, EntryCorrection, EntrySource } from './entries/entries.repository';
-export type { EntryRow, NewEntryRow } from './entries/entries.table';
-export type { EntryValue, NoteValue, SymptomValue } from './entries/entry-data.columns';
-export type { EntryVersionKey } from './entries/entry-history.repository';
-export type { EntryHistoryRow } from './entries/entry-history.table';
-export type { SubjectSearch } from './subjects/subjects.repository';
-export type { NewSubjectRow, SubjectRow } from './subjects/subjects.table';
-export type { NewUserRow, UserRow } from './users/users.table';
-export type { TimelineRange } from './views/timeline-entries.repository';
-export type { TimelineEntryRow } from './views/timeline-entries.view';

@@ -5,7 +5,7 @@ import {
   inRollback,
   PG_ERROR,
   seedConversation,
-  seedEntry,
+  seedNote,
   seedUser,
 } from '../test-utils';
 
@@ -17,7 +17,7 @@ describe('citations repository', () => {
     inRollback(db, async (ctx) => {
       const userId = await seedUser(ctx);
       const { answer } = await seedConversation(ctx, userId);
-      const note = await seedEntry(ctx, userId);
+      const note = await seedNote(ctx, userId);
       const citation = { messageId: answer.id, entryId: note.id, version: 1 };
 
       await ctx.repos.citations.insertMany([citation]);
@@ -29,7 +29,7 @@ describe('citations repository', () => {
       const userId = await seedUser(ctx);
       const otherId = await seedUser(ctx);
       const { answer } = await seedConversation(ctx, userId);
-      const note = await seedEntry(ctx, userId);
+      const note = await seedNote(ctx, userId);
 
       await ctx.repos.citations.insertMany([{ messageId: answer.id, entryId: note.id, version: 1 }]);
       expect(await ctx.repos.citations.listForMessage(otherId, answer.id)).toEqual([]);
@@ -39,9 +39,9 @@ describe('citations repository', () => {
     inRollback(db, async (ctx) => {
       const userId = await seedUser(ctx);
       const { answer } = await seedConversation(ctx, userId);
-      const note = await seedEntry(ctx, userId);
+      const note = await seedNote(ctx, userId);
 
-      await expectViolation(ctx, PG_ERROR.foreignKeyViolation, (repos) =>
+      await expectViolation(ctx, PG_ERROR.foreignKeyViolation, ({ repos }) =>
         repos.citations.insertMany([{ messageId: answer.id, entryId: note.id, version: 2 }]),
       );
     }));
